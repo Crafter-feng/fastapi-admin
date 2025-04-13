@@ -66,7 +66,7 @@ msgstr "返回"
 
 #: fastapi_admin/templates/init.html:10
 msgid "Create first admin"
-msgstr ""
+msgstr "创建第一个管理员"
 
 #: fastapi_admin/templates/init.html:12
 #: fastapi_admin/templates/providers/login/login.html:44
@@ -88,7 +88,7 @@ msgstr "请输入密码"
 
 #: fastapi_admin/templates/init.html:31
 msgid "confirm_password"
-msgstr "请确认密码"
+msgstr "确认密码"
 
 #: fastapi_admin/templates/init.html:36
 msgid "confirm_password_placeholder"
@@ -105,11 +105,11 @@ msgstr "显示"
 
 #: fastapi_admin/templates/list.html:24
 msgid "entries"
-msgstr "项"
+msgstr "条记录"
 
 #: fastapi_admin/templates/list.html:33
 msgid "search"
-msgstr "查询"
+msgstr "搜索"
 
 #: fastapi_admin/templates/list.html:46
 msgid "bulk_actions"
@@ -117,12 +117,12 @@ msgstr "批量操作"
 
 #: fastapi_admin/templates/list.html:139
 msgid "actions"
-msgstr "动作"
+msgstr "操作"
 
 #: fastapi_admin/templates/list.html:170
 #, python-format
 msgid "Showing %(from)s to %(to)s of %(total)s entries"
-msgstr "显示 %(from)s 到 %(to)s 共 %(total)s 项"
+msgstr "显示第 %(from)s 到 %(to)s 条记录，共 %(total)s 条"
 
 #: fastapi_admin/templates/list.html:181
 msgid "prev_page"
@@ -151,6 +151,54 @@ msgstr "返回首页"
 #: fastapi_admin/templates/providers/login/password.html:6
 msgid "update_password"
 msgstr "修改密码"
+
+#: fastapi_admin/templates/providers/login/avatar.html:18
+msgid "profile"
+msgstr "个人信息"
+
+#: fastapi_admin/templates/providers/login/profile.html:10
+msgid "profile_info"
+msgstr "基本信息"
+
+#: fastapi_admin/templates/providers/login/profile.html:35
+msgid "update_profile"
+msgstr "更新信息"
+
+#: fastapi_admin/templates/providers/login/profile.html:46
+msgid "email_placeholder"
+msgstr "请输入邮箱地址"
+
+#: fastapi_admin/templates/providers/login/profile.html:21
+msgid "email"
+msgstr "邮箱"
+
+#: fastapi_admin/templates/providers/login/profile.html:26
+msgid "avatar"
+msgstr "头像"
+
+#: fastapi_admin/templates/providers/login/profile.html:36
+msgid "intro"
+msgstr "简介"
+
+#: fastapi_admin/templates/providers/login/profile.html:36
+msgid "intro_placeholder"
+msgstr "请输入个人简介"
+
+#: fastapi_admin/providers/login.py
+msgid "profile_updated"
+msgstr "个人信息已更新"
+
+#: fastapi_admin/providers/login.py
+msgid "password_updated"
+msgstr "密码已更新"
+
+#: fastapi_admin/providers/login.py
+msgid "password_fields_required"
+msgstr "请填写所有密码字段"
+
+#: fastapi_admin/providers/login.py
+msgid "user_settings"
+msgstr "用户设置"
 
 #: fastapi_admin/templates/providers/login/avatar.html:24
 msgid "logout"
@@ -195,4 +243,167 @@ msgstr "确认新密码"
 #: fastapi_admin/templates/providers/login/password.html:29
 msgid "re_new_password_placeholder"
 msgstr "请再次输入新密码"
+
+# 侧边栏菜单
+msgid "Dashboard"
+msgstr "仪表盘"
+
+msgid "Content"
+msgstr "内容管理"
+
+msgid "Product"
+msgstr "产品"
+
+msgid "Category"
+msgstr "分类"
+
+msgid "Config"
+msgstr "配置"
+
+msgid "Auth"
+msgstr "权限管理"
+
+msgid "Admin"
+msgstr "管理员"
+
+msgid "Resource"
+msgstr "资源"
+
+msgid "Role"
+msgstr "角色"
+
+msgid "Permission"
+msgstr "权限"
+
+# 表单字段
+msgid "Name"
+msgstr "名称"
+
+msgid "Label"
+msgstr "标签"
+
+msgid "Key"
+msgstr "键名"
+
+msgid "Value"
+msgstr "值"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Type"
+msgstr "类型"
+
+msgid "Image"
+msgstr "图片"
+
+msgid "Body"
+msgstr "内容"
+
+msgid "Created_At"
+msgstr "创建时间"
+
+msgid "Is_Reviewed"
+msgstr "是否审核"
+
+msgid "View_Num"
+msgstr "查看次数"
+
+msgid "Sort"
+msgstr "排序"
+
+msgid "Id"
+msgstr "编号"
+
+# 登录相关
+msgid "Login to your account"
+msgstr "登录您的账户"
+
+# 其他
+msgid "Stargazers over time"
+msgstr "随时间变化的星标数"
+
+msgid "overview"
+msgstr "概览"
+
+# 文档链接等
+msgid "Documentation"
+msgstr "文档"
+
+msgid "License"
+msgstr "许可证"
+
+msgid "Source code"
+msgstr "源代码"
+
+msgid "Sponsor"
+msgstr "赞助"
+
+# 顶部导航
+msgid "Show notifications"
+msgstr "显示通知"
+
+# Auth 相关补充内容
+msgid "permissions"
+msgstr "权限"
+
+msgid "resource"
+msgstr "资源"
+
+msgid "permission"
+msgstr "权限"
+
+msgid "is_superuser"
+msgstr "超级管理员"
+
+msgid "is_active"
+msgstr "是否激活"
+
+msgid "path"
+msgstr "路径"
+
+msgid "roles"
+msgstr "角色"
+
+msgid "last_login"
+msgstr "最后登录"
+
+msgid "created_at"
+msgstr "创建时间"
+
+msgid "All permissions"
+msgstr "所有权限"
+
+msgid "read"
+msgstr "读取"
+
+msgid "create"
+msgstr "创建"
+
+msgid "update"
+msgstr "更新"
+
+msgid "delete"
+msgstr "删除"
+
+msgid "Save Permissions"
+msgstr "保存权限"
+
+msgid "Assign Permissions"
+msgstr "分配权限"
+
+msgid "Assign Roles"
+msgstr "分配角色"
+
+msgid "Save Roles"
+msgstr "保存角色"
+
+msgid "Administrator"
+msgstr "管理员"
+
+msgid "Editor"
+msgstr "编辑"
+
+msgid "Visitor"
+msgstr "访客"
 

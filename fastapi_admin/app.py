@@ -1,12 +1,13 @@
 from typing import Dict, List, Optional, Type
 
-import redis.asyncio as redis
 from fastapi import FastAPI
 from pydantic import HttpUrl
 from starlette.middleware.base import BaseHTTPMiddleware
 from tortoise import Model
 
 from fastapi_admin import i18n
+from fastapi_admin.utils.storage import MemoryStorage
+from fastapi_admin.utils.permissions import permission_collector
 
 from . import middlewares, template
 from .providers import Provider
@@ -22,13 +23,14 @@ class FastAPIAdmin(FastAPI):
     admin_path: str
     resources: List[Type[Resource]] = []
     model_resources: Dict[Type[Model], Type[Resource]] = {}
-    redis: redis.Redis
+    storage: MemoryStorage
     language_switch: bool = True
     favicon_url: Optional[HttpUrl] = None
+    maintenance: bool = False
 
     async def configure(
         self,
-        redis: redis.Redis,
+        storage: Optional[MemoryStorage] = None,
         logo_url: str = None,
         default_locale: str = "en_US",
         language_switch: bool = True,
@@ -36,15 +38,23 @@ class FastAPIAdmin(FastAPI):
         template_folders: Optional[List[str]] = None,
         providers: Optional[List[Provider]] = None,
         favicon_url: Optional[HttpUrl] = None,
+        maintenance: bool = False,
     ):
-        self.redis = redis
+        self.storage = storage or MemoryStorage()
         i18n.set_locale(default_locale)
         self.admin_path = admin_path
         self.language_switch = language_switch
         self.logo_url = logo_url
         self.favicon_url = favicon_url
+        self.maintenance = maintenance
+        
         if template_folders:
             template.add_template_folder(*template_folders)
+        
+        # 如果维护模式开启，添加维护模式中间件
+        if maintenance:
+            self.add_middleware(BaseHTTPMiddleware, dispatch=middlewares.maintenance_middleware)
+        
         await self._register_providers(providers)
 
     async def _register_providers(self, providers: Optional[List[Provider]] = None):
@@ -65,6 +75,8 @@ class FastAPIAdmin(FastAPI):
     def register(self, resource: Type[Resource]):
         self._set_model_resource(resource)
         self.resources.append(resource)
+        # 自动收集资源权限
+        permission_collector.collect_resource(resource)
 
     def get_model_resource(self, model: Type[Model]):
         r = self.model_resources.get(model)

@@ -1,9 +1,29 @@
-version: "3"
 services:
   app:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     restart: always
     env_file: .env
-    network_mode: host
     image: fastapi-admin
-    command: uvicorn examples.main:app_ --port 8000 --host 0.0.0.0
+    volumes:
+      - .:/app
+    command: uvicorn examples.main:app_ --port 8000 --host 0.0.0.0 --reload
+
+    networks:
+      - traefik
+
+    labels:
+      # 用于 Traefik 服务发现
+      - "traefik.enable=true"
+
+      # admin服务配置
+      - "traefik.http.routers.admin-secure.tls=true"
+      - "traefik.http.routers.admin-secure.entrypoints=https"
+      - "traefik.http.routers.admin-secure.rule=Host(`admin.1zlab.xyz`)"
+      - "traefik.http.routers.admin-secure.service=mediamtx-admin"
+      - "traefik.http.services.mediamtx-admin.loadbalancer.server.port=8000"
+
+networks:
+  traefik:
+    external: true

@@ -3,5 +3,5 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+# 设置默认数据库为SQLite，方便快速启动
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite://./db.sqlite3")

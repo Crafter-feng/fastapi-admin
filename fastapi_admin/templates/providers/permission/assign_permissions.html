@@ -1,0 +1,99 @@
+{% extends 'layout.html' %}
+
+{% block page_header %}
+<div class="row align-items-center">
+    <div class="col">
+        <div class="page-pretitle">Role Management</div>
+        <h2 class="page-title">Assign Permissions</h2>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_body %}
+<div class="container-xl">
+    <div class="row row-cards">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">角色：{{ role.label }}</h3>
+                </div>
+                <div class="card-body">
+                    <form id="permission-form">
+                        <div class="row mb-3">
+                            <div class="col">
+                                <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column">
+                                    {% for permission in permissions %}
+                                    <label class="form-selectgroup-item flex-fill">
+                                        <input type="checkbox" name="permissions[]" value="{{ permission.pk }}" class="form-selectgroup-input permission-checkbox"
+                                        {% if permission.pk in role_permissions %}checked{% endif %}>
+                                        <div class="form-selectgroup-label d-flex align-items-center p-3">
+                                            <div class="me-3">
+                                                <span class="form-selectgroup-check"></span>
+                                            </div>
+                                            <div class="form-selectgroup-label-content d-flex align-items-center">
+                                                <div>
+                                                    <div class="font-weight-medium">{{ permission.label }}</div>
+                                                    <div class="text-muted">{{ permission.resource }} - {{ permission.permission }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-footer">
+                            <button type="submit" class="btn btn-primary">保存权限</button>
+                            <a href="{{ request.app.admin_path }}/role/list" class="btn btn-secondary ms-2">返回</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const permissionForm = document.getElementById('permission-form');
+        const adminPath = '{{ request.app.admin_path }}';
+        
+        // 提交权限表单
+        permissionForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // 获取选中的权限ID
+            const selectedPermissions = [];
+            document.querySelectorAll('.permission-checkbox:checked').forEach(cb => {
+                selectedPermissions.push(parseInt(cb.value));
+            });
+            
+            // 提交权限更新
+            fetch(`${adminPath}/api/roles/{{ role.pk }}/permissions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    permissions: selectedPermissions
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('权限更新成功');
+                    window.location.href = `${adminPath}/role/list`;
+                } else {
+                    alert('权限更新失败: ' + (data.message || '未知错误'));
+                }
+            })
+            .catch(error => {
+                console.error('更新角色权限失败:', error);
+                alert('权限更新失败，请查看控制台');
+            });
+        });
+    });
+</script>
+{% endblock %} 

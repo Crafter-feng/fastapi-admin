@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+运行配置文件： @docker-compose.yml @Dockerfile
+已配置reload：uvicorn examples.main:app_ --port 8000 --host 0.0.0.0 --reload，代码修改后不需要重启docker，直接查看日志即可
+域名和代理已配置，测试直接使用admin.1zlab.xyz，默认用户名 admin  密码 123456
+不允许使用localhost访问！！！！！

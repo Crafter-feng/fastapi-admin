@@ -76,7 +76,7 @@
                 </div>
             </div>
             <div class="table-responsive">
-                <table class="table card-table table-vcenter text-nowrap datatable">
+                <table class="table card-table table-vcenter text-nowrap datatable" style="min-height: 250px;">
                     <thead>
                     <tr>
                         {% if model_resource.bulk_actions %}
@@ -110,7 +110,7 @@
                         {% endif %}
                     </tr>
                     </thead>
-                    <tbody>
+                    <tbody style="min-height: 200px;">
                     {% for value in rendered_values %}
                         <tr {% for k,v in row_attributes[loop.index0].items() %}{{ k }}="{{ v }}"{% endfor %}>
                         {% if model_resource.bulk_actions %}
@@ -162,6 +162,11 @@
                         {% endif %}
                         </tr>
                     {% endfor %}
+                    {% if rendered_values|length < 5 %}
+                        {% for i in range(5 - rendered_values|length) %}
+                            <tr class="empty-row" style="height: 44px;"><td colspan="{{ fields|length + (1 if model_resource.bulk_actions else 0) + (1 if model_resource.actions else 0) }}"></td></tr>
+                        {% endfor %}
+                    {% endif %}
                     </tbody>
                 </table>
             </div>
@@ -268,5 +273,13 @@
             }
         });
     </script>
-
+    <style>
+        .table tbody {
+            min-height: 220px;
+            display: table-row-group;
+        }
+        .empty-row {
+            background-color: transparent !important;
+        }
+    </style>
 {% endblock %}

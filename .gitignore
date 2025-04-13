@@ -132,3 +132,5 @@ dmypy.json
 .idea
 .DS_Store
 .vscode
+db.sqlite3-shm
+db.sqlite3-wal

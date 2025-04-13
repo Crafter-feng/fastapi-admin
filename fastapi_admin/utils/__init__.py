@@ -1,3 +1,8 @@
+"""
+实用工具包
+""" 
+
+
 import random
 import string
 

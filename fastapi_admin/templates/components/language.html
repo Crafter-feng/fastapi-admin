@@ -1,6 +1,6 @@
 <div class="nav-item me-3 dropdown d-none d-md-flex">
     <a href="#" class="nav-link px-0" data-bs-toggle="dropdown" tabindex="-1"
-       aria-label="Show notifications">
+       aria-label="{{ _('Show notifications') }}">
         <svg xmlns="http://www.w3.org/2000/svg"
              class="icon icon-tabler icon-tabler-language"
              width="24" height="24"
@@ -21,22 +21,6 @@
         <a class="dropdown-item"
            href="{{ {'language':'en_US'}|current_page_with_params }}">
             <span class="me-2">🇺🇸</span>English
-        </a>
-        <a class="dropdown-item"
-           href="{{ {'language':'fr_FR'}|current_page_with_params }}">
-            <span class="me-2">🇫🇷</span>Français
-        </a>
-        <a class="dropdown-item"
-           href="{{ {'language':'fa_IR'}|current_page_with_params }}">
-            <span class="me-2">🇮🇷</span>Persian
-        </a>
-        <a class="dropdown-item"
-           href="{{ {'language':'es_PY'}|current_page_with_params }}">
-            <span class="me-2">🇵🇾</span>Español
-        </a>
-        <a class="dropdown-item"
-           href="{{ {'language':'tr_TR'}|current_page_with_params }}">
-            <span class="me-2">🇹🇷</span>Türkçe
         </a>
     </div>
 </div>

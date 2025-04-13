@@ -84,6 +84,8 @@ class Model(Resource):
     page_pre_title: Optional[str] = None
     page_title: Optional[str] = None
     filters: List[Union[str, Filter]] = []
+    exclude_fields_on_edit: List[str] = []  # 编辑页面需要排除的字段列表，这些字段在编辑时不会显示，但在创建时仍会显示
+    exclude_fields: List[str] = []  # 需要排除的字段列表，这些字段在编辑和创建时都不会显示
 
     async def get_toolbar_actions(self, request: Request) -> List[ToolbarAction]:
         return [
@@ -130,6 +132,12 @@ class Model(Resource):
         for field in cls.get_fields(is_display=False):
             input_ = field.input
             name = input_.context.get("name")
+            # 如果该字段在全局排除列表中，则跳过
+            if name in cls.exclude_fields:
+                continue
+            # 如果该字段在编辑排除列表中且存在对象（编辑模式），则跳过
+            if name in cls.exclude_fields_on_edit and obj is not None:
+                continue
             if isinstance(input_, inputs.DisplayOnly):
                 continue
             if isinstance(input_, inputs.File):
@@ -164,11 +172,21 @@ class Model(Resource):
     async def resolve_data(cls, request: Request, data: FormData):
         ret = {}
         m2m_ret = {}
+        # 检查是否在编辑模式
+        path = request.url.path
+        is_update = '/update/' in path
+        
         for field in cls.get_fields(is_display=False):
             input_ = field.input
             if input_.context.get("disabled") or isinstance(input_, inputs.DisplayOnly):
                 continue
             name = input_.context.get("name")
+            # 如果在全局排除列表中，则跳过
+            if name in cls.exclude_fields:
+                continue
+            # 如果在编辑模式下且字段在编辑排除列表中，则跳过
+            if is_update and name in cls.exclude_fields_on_edit:
+                continue
             if isinstance(input_, inputs.ForeignKey):
                 v = data.getlist(name)[0]
                 ret[name] = int(v) if v else None

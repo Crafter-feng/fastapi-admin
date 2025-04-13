@@ -66,7 +66,7 @@ msgstr "Return"
 
 #: fastapi_admin/templates/init.html:10
 msgid "Create first admin"
-msgstr ""
+msgstr "Create first admin"
 
 #: fastapi_admin/templates/init.html:12
 #: fastapi_admin/templates/providers/login/login.html:44
@@ -105,7 +105,7 @@ msgstr "Show"
 
 #: fastapi_admin/templates/list.html:24
 msgid "entries"
-msgstr ""
+msgstr "Entries"
 
 #: fastapi_admin/templates/list.html:33
 msgid "search"
@@ -122,7 +122,7 @@ msgstr "Actions"
 #: fastapi_admin/templates/list.html:170
 #, python-format
 msgid "Showing %(from)s to %(to)s of %(total)s entries"
-msgstr ""
+msgstr "Showing %(from)s to %(to)s of %(total)s entries"
 
 #: fastapi_admin/templates/list.html:181
 msgid "prev_page"
@@ -151,6 +151,54 @@ msgstr "Take me home"
 #: fastapi_admin/templates/providers/login/password.html:6
 msgid "update_password"
 msgstr "Update password"
+
+#: fastapi_admin/templates/providers/login/avatar.html:18
+msgid "profile"
+msgstr "Profile"
+
+#: fastapi_admin/templates/providers/login/profile.html:10
+msgid "profile_info"
+msgstr "Profile information"
+
+#: fastapi_admin/templates/providers/login/profile.html:35
+msgid "update_profile"
+msgstr "Update profile"
+
+#: fastapi_admin/templates/providers/login/profile.html:46
+msgid "email_placeholder"
+msgstr "Enter email address"
+
+#: fastapi_admin/templates/providers/login/profile.html:21
+msgid "email"
+msgstr "Email"
+
+#: fastapi_admin/templates/providers/login/profile.html:26
+msgid "avatar"
+msgstr "Avatar"
+
+#: fastapi_admin/templates/providers/login/profile.html:36
+msgid "intro"
+msgstr "Introduction"
+
+#: fastapi_admin/templates/providers/login/profile.html:36
+msgid "intro_placeholder"
+msgstr "Enter your introduction"
+
+#: fastapi_admin/providers/login.py
+msgid "profile_updated"
+msgstr "Profile updated"
+
+#: fastapi_admin/providers/login.py
+msgid "password_updated"
+msgstr "Password updated"
+
+#: fastapi_admin/providers/login.py
+msgid "password_fields_required"
+msgstr "All password fields are required"
+
+#: fastapi_admin/providers/login.py
+msgid "user_settings"
+msgstr "User settings"
 
 #: fastapi_admin/templates/providers/login/avatar.html:24
 msgid "logout"
@@ -195,4 +243,165 @@ msgstr "Confirm new password"
 #: fastapi_admin/templates/providers/login/password.html:29
 msgid "re_new_password_placeholder"
 msgstr "Enter new password again"
+
+# Added translations
+
+# Sidebar menu
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Content"
+msgstr "Content"
+
+msgid "Product"
+msgstr "Product"
+
+msgid "Category"
+msgstr "Category"
+
+msgid "Config"
+msgstr "Config"
+
+msgid "Auth"
+msgstr "Auth"
+
+msgid "Admin"
+msgstr "Admin"
+
+msgid "Resource"
+msgstr "Resource"
+
+msgid "Role"
+msgstr "Role"
+
+msgid "Permission"
+msgstr "Permission"
+
+# Form fields
+msgid "Name"
+msgstr "Name"
+
+msgid "Label"
+msgstr "Label"
+
+msgid "Key"
+msgstr "Key"
+
+msgid "Value"
+msgstr "Value"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Type"
+msgstr "Type"
+
+msgid "Image"
+msgstr "Image"
+
+msgid "Body"
+msgstr "Body"
+
+msgid "Created_At"
+msgstr "Created At"
+
+msgid "Is_Reviewed"
+msgstr "Is Reviewed"
+
+msgid "View_Num"
+msgstr "View Count"
+
+msgid "Sort"
+msgstr "Sort"
+
+msgid "Id"
+msgstr "ID"
+
+# Login related
+msgid "Login to your account"
+msgstr "Login to your account"
+
+# Others
+msgid "Stargazers over time"
+msgstr "Stargazers over time"
+
+msgid "overview"
+msgstr "Overview"
+
+# Documentation links
+msgid "Documentation"
+msgstr "Documentation"
+
+msgid "License"
+msgstr "License"
+
+msgid "Source code"
+msgstr "Source code"
+
+msgid "Sponsor"
+msgstr "Sponsor"
+
+# Auth related additions
+msgid "permissions"
+msgstr "Permissions"
+
+msgid "resource"
+msgstr "Resource"
+
+msgid "permission"
+msgstr "Permission"
+
+msgid "is_superuser"
+msgstr "Is Superuser"
+
+msgid "is_active"
+msgstr "Is Active"
+
+msgid "path"
+msgstr "Path"
+
+msgid "roles"
+msgstr "Roles"
+
+msgid "last_login"
+msgstr "Last Login"
+
+msgid "created_at"
+msgstr "Created At"
+
+msgid "All permissions"
+msgstr "All Permissions"
+
+msgid "read"
+msgstr "Read"
+
+msgid "create"
+msgstr "Create"
+
+msgid "update"
+msgstr "Update"
+
+msgid "delete"
+msgstr "Delete"
+
+msgid "Save Permissions"
+msgstr "Save Permissions"
+
+msgid "Assign Permissions"
+msgstr "Assign Permissions"
+
+msgid "Assign Roles"
+msgstr "Assign Roles"
+
+msgid "Save Roles"
+msgstr "Save Roles"
+
+msgid "Administrator"
+msgstr "Administrator"
+
+msgid "Editor"
+msgstr "Editor"
+
+msgid "Visitor"
+msgstr "Visitor"
 
