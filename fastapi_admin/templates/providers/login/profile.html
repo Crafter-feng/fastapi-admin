@@ -12,24 +12,24 @@
                     <form method="post" action="{{ request.app.admin_path }}/profile/info" enctype="multipart/form-data">
                         <div class="form-group mb-3">
                             <label class="form-label">{{ _('username') }}</label>
-                            <input class="form-control" type="text" name="username" value="{{ admin.username }}" readonly/>
+                            <input class="form-control" type="text" name="username" value="{{ user.username }}" readonly/>
                         </div>
                         <div class="form-group mb-3">
                             <label class="form-label">{{ _('email') }}</label>
-                            <input class="form-control" type="email" name="email" value="{{ admin.email }}" placeholder="{{ _('email_placeholder') }}"/>
+                            <input class="form-control" type="email" name="email" value="{{ user.email }}" placeholder="{{ _('email_placeholder') }}"/>
                         </div>
                         <div class="form-group mb-3">
                             <label class="form-label">{{ _('avatar') }}</label>
                             <div class="d-flex align-items-center mb-2">
                                 <span class="avatar avatar-md me-3">
-                                    <img src="{{ admin.avatar }}" alt="{{ admin.username }}"/>
+                                    <img src="{{ user.avatar }}" alt="{{ user.username }}"/>
                                 </span>
                                 <input class="form-control" type="file" name="avatar" accept="image/*"/>
                             </div>
                         </div>
                         <div class="form-group mb-3">
                             <label class="form-label">{{ _('intro') }}</label>
-                            <textarea class="form-control" name="intro" rows="3" placeholder="{{ _('intro_placeholder') }}">{{ admin.intro }}</textarea>
+                            <textarea class="form-control" name="intro" rows="3" placeholder="{{ _('intro_placeholder') }}">{{ user.intro }}</textarea>
                         </div>
                         <div class="form-footer">
                             <button type="submit" class="btn btn-primary">{{ _('update_profile') }}</button>

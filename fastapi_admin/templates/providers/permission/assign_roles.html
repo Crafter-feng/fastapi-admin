@@ -3,8 +3,8 @@
 {% block page_header %}
 <div class="row align-items-center">
     <div class="col">
-        <div class="page-pretitle">Admin Management</div>
-        <h2 class="page-title">Assign Roles</h2>
+        <div class="page-pretitle">{{ _('User Management') }}</div>
+        <h2 class="page-title">{{ _('Assign Roles') }}</h2>
     </div>
 </div>
 {% endblock %}
@@ -15,7 +15,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">管理员：{{ admin.username }}</h3>
+                    <h3 class="card-title">{{ _('User') }}：{{ user.username }}</h3>
                 </div>
                 <div class="card-body">
                     <form id="roles-form">
@@ -25,7 +25,7 @@
                                     {% for role in roles %}
                                     <label class="form-selectgroup-item flex-fill">
                                         <input type="checkbox" name="roles[]" value="{{ role.pk }}" class="form-selectgroup-input role-checkbox"
-                                        {% if role.pk in admin_roles %}checked{% endif %}>
+                                        {% if role.pk in user_roles %}checked{% endif %}>
                                         <div class="form-selectgroup-label d-flex align-items-center p-3">
                                             <div class="me-3">
                                                 <span class="form-selectgroup-check"></span>
@@ -42,8 +42,8 @@
                             </div>
                         </div>
                         <div class="form-footer">
-                            <button type="submit" class="btn btn-primary">保存角色</button>
-                            <a href="{{ request.app.admin_path }}/admin/list" class="btn btn-secondary ms-2">返回</a>
+                            <button type="submit" class="btn btn-primary">{{ _('Save Roles') }}</button>
+                            <a href="{{ request.app.admin_path }}/user/list" class="btn btn-secondary ms-2">{{ _('Back') }}</a>
                         </div>
                     </form>
                 </div>
@@ -70,7 +70,7 @@
             });
             
             // 提交角色更新
-            fetch(`${adminPath}/api/admins/{{ admin.pk }}/roles`, {
+            fetch(`${adminPath}/api/users/{{ user.pk }}/roles`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -82,15 +82,15 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    alert('角色更新成功');
-                    window.location.href = `${adminPath}/admin/list`;
+                    alert('{{ _("Roles update success") }}');
+                    window.location.href = `${adminPath}/user/list`;
                 } else {
-                    alert('角色更新失败: ' + (data.message || '未知错误'));
+                    alert('{{ _("Roles update failed") }}: ' + (data.message || '{{ _("Unknown error") }}'));
                 }
             })
             .catch(error => {
-                console.error('更新管理员角色失败:', error);
-                alert('角色更新失败，请查看控制台');
+                console.error('{{ _("Update user roles failed") }}:', error);
+                alert('{{ _("Roles update failed, please check console") }}');
             });
         });
     });

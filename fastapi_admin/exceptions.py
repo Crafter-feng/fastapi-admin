@@ -67,10 +67,10 @@ async def unauthorized_error_exception(request: Request, exc: HTTPException):
         from fastapi_admin.models import AbstractAdmin
         
         # 获取管理员模型类
-        admin_model = request.app.login_provider.admin_model
+        user_model = request.app.login_provider.user_model
         
         # 检查是否有任何用户
-        has_users = await admin_model.all().limit(1).exists()
+        has_users = await user_model.all().limit(1).exists()
         
         if not has_users:
             # 如果没有用户，重定向到初始化页面

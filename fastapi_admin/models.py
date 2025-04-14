@@ -46,7 +46,7 @@ class AbstractAdminLog(Model):
             table = "logs"
     ```
     """
-    admin = fields.ForeignKeyField("models.Admin")
+    admin = fields.ForeignKeyField("models.User")
     content = fields.JSONField()
     resource = fields.CharField(max_length=50)
     action = fields.CharField(max_length=10, default="create")  # create, edit, delete

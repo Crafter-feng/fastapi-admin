@@ -17,7 +17,7 @@ from tortoise import Tortoise
 
 from examples import settings
 from examples.constants import BASE_DIR
-from examples.models import Admin, Role, Permission, Resource, AdminLog
+from examples.models import User, Role, Permission, Resource, AdminLog
 from examples.providers import LoginProvider
 from fastapi_admin.app import app as admin_app
 from fastapi_admin.exceptions import (
@@ -72,10 +72,10 @@ async def lifespan(app: FastAPI):
         providers=[
             LoginProvider(
                 login_logo_url="https://preview.tabler.io/static/logo.svg",
-                admin_model=Admin,
+                user_model=User,
             ),
             PermissionProvider(
-                admin_model=Admin,
+                user_model=User,
                 permission_model=Permission,
                 role_model=Role,
                 get_admin_permissions=get_admin_permissions,
@@ -104,10 +104,10 @@ def create_app():
 
     @app.get("/")
     async def index():
-        from examples.models import Admin
+        from examples.models import User
         
         # 检查是否存在管理员用户
-        has_users = await Admin.all().limit(1).exists()
+        has_users = await User.all().limit(1).exists()
         
         if has_users:
             # 如果存在用户，重定向到管理面板

@@ -5,7 +5,7 @@ from starlette.status import HTTP_303_SEE_OTHER, HTTP_404_NOT_FOUND
 
 from examples.models import Config
 from fastapi_admin.app import app
-from fastapi_admin.depends import get_resources, get_current_admin
+from fastapi_admin.depends import get_resources, get_current_user
 from fastapi_admin.template import templates
 from fastapi_admin.i18n import _
 
@@ -14,7 +14,7 @@ from fastapi_admin.i18n import _
 async def home(
     request: Request,
     resources=Depends(get_resources),
-    admin=Depends(get_current_admin),
+    admin=Depends(get_current_user),
 ):
     return templates.TemplateResponse(
         "dashboard.html",

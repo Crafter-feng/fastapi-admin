@@ -14,8 +14,78 @@ from fastapi_admin.resources import Model as ModelResource
 from fastapi_admin.resources import render_values
 from fastapi_admin.responses import redirect
 from fastapi_admin.template import templates
+from fastapi_admin.utils.logger import logger
 
 router = APIRouter()
+
+
+async def log_admin_action(request: Request, model_class, instance, action):
+    """
+    记录管理员操作日志
+    
+    Args:
+        request: 请求对象
+        model_class: 模型类
+        instance: 实例对象
+        action: 操作类型（create, edit, delete）
+    """
+    try:
+        # 获取应用实例
+        app = request.app
+        
+        # 获取AdminLogProvider - 直接通过名称获取
+        admin_log_provider = getattr(app, 'admin_log_provider', None)
+        
+        if not admin_log_provider:
+            logger.warning("未找到AdminLogProvider，无法记录操作日志")
+            return
+        
+        # 获取当前用户
+        user = getattr(request.state, 'user', None)
+        if not user:
+            logger.debug(f"当前请求无用户信息，跳过日志记录")
+            return
+        
+        # 跳过对AdminLog模型本身的记录
+        if model_class.__name__.lower() == 'adminlog':
+            logger.debug(f"跳过对AdminLog模型本身的日志记录")
+            return
+        
+        # 获取模型名称作为资源标识
+        resource = model_class.__name__.lower()
+        
+        # 准备日志内容
+        content = {}
+        for field in model_class._meta.fields:
+            field_name = field
+            try:
+                value = getattr(instance, field_name)
+                # 确保值可以序列化
+                if value is not None:
+                    content[field_name] = str(value)
+                else:
+                    content[field_name] = None
+            except Exception as e:
+                logger.debug(f"获取字段 {field_name} 值时出错: {str(e)}")
+                content[field_name] = None
+        
+        # 添加主键信息
+        if hasattr(instance, 'pk'):
+            content['pk'] = str(instance.pk)
+        
+        logger.debug(f"准备记录 {resource} 的 {action} 操作日志，内容: {content}")
+        
+        # 创建日志记录
+        await admin_log_provider.log_model.create(
+            user=user,
+            content=content,
+            resource=resource,
+            action=action
+        )
+        
+        logger.debug(f"成功记录 {resource} 的 {action} 操作日志")
+    except Exception as e:
+        logger.error(f"记录操作日志时发生错误: {str(e)}")
 
 
 @router.get("/{resource}/list")
@@ -127,6 +197,10 @@ async def update(
             .get()
             .prefetch_related(*m2m_fields)
         )
+        
+        # 记录更新操作日志
+        await log_admin_action(request, model, obj, "edit")
+        
     inputs = await model_resource.get_inputs(request, obj)
     if "save" in form.keys():
         context = {
@@ -233,6 +307,10 @@ async def create(
         for k, items in m2m_data.items():
             m2m_obj = getattr(obj, k)  # type:ManyToManyRelation
             await m2m_obj.add(*items, using_db=conn)
+        
+        # 记录创建操作日志
+        await log_admin_action(request, model, obj, "create")
+        
     if "save" in form.keys():
         return redirect(request, "list_view", resource=resource)
     context = {
@@ -259,11 +337,27 @@ async def create(
 
 @router.delete("/{resource}/delete/{pk}")
 async def delete(request: Request, pk: str, model: Model = Depends(get_model)):
+    # 先获取对象，以便在删除前记录日志
+    obj = await model.get(pk=pk)
+    
+    # 记录删除操作日志
+    await log_admin_action(request, model, obj, "delete")
+    
+    # 执行删除操作
     await model.filter(pk=pk).delete()
     return RedirectResponse(url=request.headers.get("referer"), status_code=HTTP_303_SEE_OTHER)
 
 
 @router.delete("/{resource}/delete")
 async def bulk_delete(request: Request, ids: str, model: Model = Depends(get_model)):
-    await model.filter(pk__in=ids.split(",")).delete()
+    # 获取要删除的所有对象
+    id_list = ids.split(",")
+    objects = await model.filter(pk__in=id_list).all()
+    
+    # 为每个对象记录删除操作日志
+    for obj in objects:
+        await log_admin_action(request, model, obj, "delete")
+    
+    # 执行批量删除操作
+    await model.filter(pk__in=id_list).delete()
     return RedirectResponse(url=request.headers.get("referer"), status_code=HTTP_303_SEE_OTHER)

@@ -405,3 +405,28 @@ msgstr "Editor"
 msgid "Visitor"
 msgstr "Visitor"
 
+# LogResource related translations
+msgid "Admin_Log"
+msgstr "Admin Log"
+
+msgid "System_Log"
+msgstr "System Log"
+
+msgid "View_Admin_Operations"
+msgstr "View Admin Operations"
+
+msgid "Resource_Type"
+msgstr "Resource Type"
+
+msgid "Action_Type"
+msgstr "Action Type"
+
+msgid "Admin_Username"
+msgstr "Admin Username"
+
+msgid "Operation_Time"
+msgstr "Operation Time"
+
+msgid "Operation_Content"
+msgstr "Operation Content"
+

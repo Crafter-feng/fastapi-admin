@@ -264,7 +264,7 @@ msgid "Auth"
 msgstr "权限管理"
 
 msgid "Admin"
-msgstr "管理员"
+msgstr "用户"
 
 msgid "Resource"
 msgstr "资源"
@@ -406,4 +406,105 @@ msgstr "编辑"
 
 msgid "Visitor"
 msgstr "访客"
+
+# LogResource 相关翻译
+msgid "Admin_Log"
+msgstr "操作日志"
+
+msgid "System_Log"
+msgstr "系统操作日志"
+
+msgid "View_Admin_Operations"
+msgstr "查看管理员操作记录"
+
+msgid "Resource_Type"
+msgstr "资源类型"
+
+msgid "Action_Type"
+msgstr "操作类型"
+
+msgid "Admin_Username"
+msgstr "管理员用户名"
+
+msgid "Operation_Time"
+msgstr "操作时间"
+
+msgid "Operation_Content"
+msgstr "操作内容"
+
+# 用户模板相关翻译
+msgid "User Management"
+msgstr "用户管理"
+
+msgid "User"
+msgstr "用户"
+
+msgid "Assign Roles"
+msgstr "分配角色"
+
+msgid "Save Roles"
+msgstr "保存角色"
+
+msgid "Roles update success"
+msgstr "角色更新成功"
+
+msgid "Roles update failed"
+msgstr "角色更新失败"
+
+msgid "Update user roles failed"
+msgstr "更新用户角色失败"
+
+msgid "Roles update failed, please check console"
+msgstr "角色更新失败，请查看控制台"
+
+msgid "Active"
+msgstr "激活"
+
+msgid "Superuser"
+msgstr "超级用户"
+
+msgid "is_superuser"
+msgstr "是否超级用户"
+
+msgid "is_active"
+msgstr "是否激活"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "Back"
+msgstr "返回"
+
+msgid "Save success"
+msgstr "保存成功"
+
+msgid "Save failed"
+msgstr "保存失败"
+
+msgid "Unknown error"
+msgstr "未知错误"
+
+msgid "Save user failed"
+msgstr "保存用户失败"
+
+msgid "Save failed, please check console"
+msgstr "保存失败，请查看控制台"
+
+msgid "Please input username"
+msgstr "请输入用户名"
+
+msgid "Please input password"
+msgstr "请输入密码"
+
+msgid "Please input nickname"
+msgstr "请输入昵称"
+
+msgid "Please input email"
+msgstr "请输入邮箱"
+
+msgid "Leave empty if not changing password"
+msgstr "如不修改密码，请留空"
+
+msgid "nickname"
+msgstr "昵称"
 

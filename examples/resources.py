@@ -5,7 +5,7 @@ from starlette.requests import Request
 
 from examples import enums
 from examples.constants import BASE_DIR
-from examples.models import Admin, Category, Config, Product, Permission, Role, AdminLog
+from examples.models import User, Category, Config, Product, Permission, Role, AdminLog
 from fastapi_admin.app import app
 from fastapi_admin.enums import Method
 from fastapi_admin.file_upload import FileUpload

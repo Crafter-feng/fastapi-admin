@@ -10,7 +10,7 @@ from fastapi_admin.models import AbstractRole
 from fastapi_admin.models import AbstractResource 
 
 
-class Admin(AbstractAdmin):
+class User(AbstractAdmin):
     last_login = fields.DatetimeField(description="Last Login", default=datetime.datetime.now)
     email = fields.CharField(max_length=200, default="")
     avatar = fields.CharField(max_length=200, default="")

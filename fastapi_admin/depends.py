@@ -88,21 +88,21 @@ def get_storage(request: Request):
     return request.app.storage
 
 
-def get_current_admin(request: Request):
+def get_current_user(request: Request):
     logger.debug("获取当前管理员")
-    admin = request.state.admin
-    if not admin:
+    user = request.state.user
+    if not user:
         logger.warning("未获取到管理员信息，返回401未授权错误")
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED)
-    logger.debug(f"当前管理员: {admin}")
-    return admin
+    logger.debug(f"当前管理员: {user}")
+    return user
 
 
 async def check_permission(
     request: Request,
     permission_type: str,
     resource_type: str,
-    admin=Depends(get_current_admin),
+    admin=Depends(get_current_user),
 ):
     """检查用户是否有特定资源的特定权限
     
@@ -141,7 +141,7 @@ async def check_resource_permission(
     request: Request,
     permission_type: str,
     model_resource=Depends(get_model_resource),
-    admin=Depends(get_current_admin),
+    admin=Depends(get_current_user),
 ):
     """用于在路由中检查权限的依赖函数
     

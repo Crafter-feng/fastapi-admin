@@ -7,7 +7,7 @@ from loguru import logger
 
 
 # 默认配置
-log_level = os.environ.get("LOG_LEVEL", "INFO")
+log_level = os.environ.get("LOG_LEVEL", "DEBUG")
 log_path = os.environ.get("LOG_PATH", "logs")
 
 # 确保日志目录存在

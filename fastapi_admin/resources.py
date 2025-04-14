@@ -278,7 +278,7 @@ class Model(Resource):
             field_name = field.source_field
         elif isinstance(field, ManyToManyFieldInstance):
             display, input_ = displays.InputOnly(), inputs.ManyToMany(field.related_model)
-        return Field(name=field_name, label=label.title(), display=display, input_=input_)
+        return Field(name=field_name, label=_(label), display=display, input_=input_)
 
     @classmethod
     def get_fields(cls, is_display: bool = True):
