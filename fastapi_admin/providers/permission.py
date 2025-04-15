@@ -2,7 +2,7 @@ from fastapi_admin.utils.logger import logger
 
 
 import typing
-from typing import Type, Dict, Optional, Any
+from typing import Type, Dict, Optional, Any, List
 import json
 from fastapi import Depends, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -12,7 +12,7 @@ from starlette.status import HTTP_403_FORBIDDEN
 from fastapi_admin.depends import get_current_user
 from fastapi_admin.models import AbstractAdmin
 from fastapi_admin.providers import Provider
-from fastapi_admin.resources import Model, Dropdown, Field
+from fastapi_admin.resources import Model, Dropdown, Field, Action, Method
 from fastapi_admin.template import templates
 from fastapi_admin import constants
 from fastapi_admin.utils.permissions import sync_permissions_to_db
@@ -80,8 +80,37 @@ class PermissionProvider(Provider):
             model = self.role_model
             fields = [
                 "id", 
-                "label"
+                "label",
+                "description"
             ]
+
+            @classmethod
+            async def get_actions(cls, request: Request, obj=None) -> List[Action]:
+                """自定义操作 - 注意这是一个类方法，以与资源列表页面兼容
+                
+                Args:
+                    request: 请求对象
+                    obj: 可选的对象，在列表视图中为None
+                    
+                Returns:
+                    操作列表
+                """
+                # 首先获取基本操作 
+                actions = [
+                    Action(
+                        label=_("update"), icon="ti ti-edit", name="update", method=Method.GET, ajax=False
+                    ),
+                    Action(label=_("delete"), icon="ti ti-trash", name="delete", method=Method.DELETE),
+                ]
+                
+                # 只有在有具体对象时才添加"分配权限"操作
+                if obj is not None:
+                    actions.append({
+                        "label": _("Assign Permissions"),
+                        "icon": "ti ti-key",
+                        "url": f"{request.app.admin_path}/assign_permissions/{obj.pk}",
+                    })
+                return actions
 
         class ResourceResource(Model):
             label = _('Resource')
@@ -103,9 +132,37 @@ class PermissionProvider(Provider):
                 "is_superuser", 
                 "is_active", 
                 "last_login", 
-                "created_at", 
-                "permissions"
+                "created_at"
             ]
+            
+            @classmethod
+            async def get_actions(cls, request: Request, obj=None) -> List[Action]:
+                """自定义操作 - 注意这是一个类方法，以与资源列表页面兼容
+                
+                Args:
+                    request: 请求对象
+                    obj: 可选的对象，在列表视图中为None
+                    
+                Returns:
+                    操作列表
+                """
+                # 首先获取基本操作
+                actions = [
+                    Action(
+                        label=_("update"), icon="ti ti-edit", name="update", method=Method.GET, ajax=False
+                    ),
+                    Action(label=_("delete"), icon="ti ti-trash", name="delete", method=Method.DELETE),
+                ]
+                
+                # 只有在有具体对象时才添加"分配角色"操作
+                if obj is not None:
+                    actions.append({
+                        "label": _("Assign Roles"),
+                        "icon": "ti ti-user-cog",
+                        "url": f"{request.app.admin_path}/assign_roles/{obj.pk}",
+                    })
+                return actions
+            
             exclude_fields = ["last_login", "created_at"]
 
         @app.register
@@ -211,17 +268,42 @@ class PermissionProvider(Provider):
             '编辑用户页面'
             if (not self.user_model):
                 raise HTTPException(status_code=404, detail='用户模型未配置')
-            target_admin = (await self.user_model.get_or_none(pk=user_id))
+            
+            # 获取用户信息并预加载角色关系
+            target_admin = await self.user_model.get_or_none(pk=user_id).prefetch_related('roles')
             if (not target_admin):
                 raise HTTPException(status_code=404, detail='用户不存在')
-            return templates.TemplateResponse('providers/permission/edit_user.html', context={'request': request, 'user': target_admin, 'title': f'编辑用户: {target_admin.username}'})
+            
+            # 获取所有角色和用户当前角色
+            roles = await self.role_model.all() if self.role_model else []
+            user_roles = [role.pk for role in await target_admin.roles.all()] if hasattr(target_admin, 'roles') else []
+            
+            return templates.TemplateResponse('providers/permission/edit_user.html', 
+                context={
+                    'request': request, 
+                    'user': target_admin, 
+                    'title': f'编辑用户: {target_admin.username}',
+                    'roles': roles,
+                    'user_roles': user_roles
+                })
 
         @app.get('/user/create')
         async def create_user_page(request: Request, user=Depends(get_current_user)):
             '创建用户页面'
             if (not self.user_model):
                 raise HTTPException(status_code=404, detail='用户模型未配置')
-            return templates.TemplateResponse('providers/permission/edit_user.html', context={'request': request, 'user': None, 'title': '创建新用户'})
+            
+            # 获取所有角色
+            roles = await self.role_model.all() if self.role_model else []
+            
+            return templates.TemplateResponse('providers/permission/edit_user.html', 
+                context={
+                    'request': request, 
+                    'user': None, 
+                    'title': '创建新用户',
+                    'roles': roles,
+                    'user_roles': []
+                })
 
     async def _get_role_permissions(self, role):
         '获取角色权限ID列表，根据具体ORM关系实现'
@@ -314,38 +396,29 @@ class PermissionProvider(Provider):
 
     async def check_permission(self, request: Request, user: AbstractAdmin, resource_type: str, action: Optional[str]=None, method: Optional[str]=None) -> bool:
         '检查用户是否有权限执行操作\n        \n        Args:\n            request: 请求对象\n            user: 管理员对象\n            resource_type: 资源类型\n            action: 动作类型\n            method: HTTP方法\n            \n        Returns:\n            bool: 是否有权限\n        '
-        if self.get_admin_permissions:
-            permissions = (await self.get_admin_permissions(user))
-            return self._check_with_permissions(permissions, resource_type, action, method)
+        # 如果是超级管理员，直接返回True
         if (hasattr(user, 'is_superuser') and getattr(user, 'is_superuser')):
             return True
-        if (self.role_model and self.permission_model and hasattr(user, 'roles')):
-            roles = (await user.roles.all())
-            if ((not roles) and hasattr(user, 'permissions')):
-                permissions = getattr(user, 'permissions', {})
-                if isinstance(permissions, str):
-                    try:
-                        permissions = json.loads(permissions)
-                    except:
-                        permissions = {}
-                return self._check_with_permissions(permissions, resource_type, action, method)
-            for role in roles:
-                if hasattr(role, 'permissions'):
-                    role_permissions = (await role.permissions.all())
-                    required_permission = self._get_required_permission(method, action)
-                    for perm in role_permissions:
-                        if (((perm.resource == resource_type) or (perm.resource == '*')) and ((perm.permission == required_permission) or (perm.permission == '*'))):
-                            return True
+            
+        # 如果没有配置角色和权限模型，返回True
+        if not (self.role_model and self.permission_model and hasattr(user, 'roles')):
+            return True
+            
+        # 获取用户的所有角色
+        roles = await user.roles.all()
+        if not roles:
             return False
-        if hasattr(user, 'permissions'):
-            permissions = getattr(user, 'permissions', {})
-            if isinstance(permissions, str):
-                try:
-                    permissions = json.loads(permissions)
-                except:
-                    permissions = {}
-            return self._check_with_permissions(permissions, resource_type, action, method)
-        return True
+            
+        # 检查每个角色的权限
+        required_permission = self._get_required_permission(method, action)
+        for role in roles:
+            if hasattr(role, 'permissions'):
+                role_permissions = await role.permissions.all()
+                for perm in role_permissions:
+                    if ((perm.resource == resource_type or perm.resource == '*') and 
+                        (perm.permission == required_permission or perm.permission == '*')):
+                        return True
+        return False
 
     def _get_required_permission(self, method: str, action: Optional[str]=None) -> str:
         '根据HTTP方法和操作类型获取所需权限\n        \n        Args:\n            method: HTTP方法\n            action: 操作类型\n            \n        Returns:\n            str: 所需权限\n        '

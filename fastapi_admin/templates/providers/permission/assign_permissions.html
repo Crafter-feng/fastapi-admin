@@ -3,8 +3,8 @@
 {% block page_header %}
 <div class="row align-items-center">
     <div class="col">
-        <div class="page-pretitle">Role Management</div>
-        <h2 class="page-title">Assign Permissions</h2>
+        <div class="page-pretitle">{{ _('Role Management') }}</div>
+        <h2 class="page-title">{{ _('Assign Permissions') }}</h2>
     </div>
 </div>
 {% endblock %}
@@ -15,7 +15,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">角色：{{ role.label }}</h3>
+                    <h3 class="card-title">{{ _('Role') }}: {{ role.label }}</h3>
                 </div>
                 <div class="card-body">
                     <form id="permission-form">
@@ -33,7 +33,7 @@
                                             <div class="form-selectgroup-label-content d-flex align-items-center">
                                                 <div>
                                                     <div class="font-weight-medium">{{ permission.label }}</div>
-                                                    <div class="text-muted">{{ permission.resource }} - {{ permission.permission }}</div>
+                                                    <div class="text-muted small">{{ permission.resource }} - {{ permission.permission }}</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -43,8 +43,8 @@
                             </div>
                         </div>
                         <div class="form-footer">
-                            <button type="submit" class="btn btn-primary">保存权限</button>
-                            <a href="{{ request.app.admin_path }}/role/list" class="btn btn-secondary ms-2">返回</a>
+                            <button type="submit" class="btn btn-primary">{{ _('Save') }}</button>
+                            <a href="{{ request.app.admin_path }}/role/list" class="btn btn-secondary ms-2">{{ _('Back') }}</a>
                         </div>
                     </form>
                 </div>
@@ -60,39 +60,33 @@
         const permissionForm = document.getElementById('permission-form');
         const adminPath = '{{ request.app.admin_path }}';
         
-        // 提交权限表单
-        permissionForm.addEventListener('submit', function(e) {
+        permissionForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            // 获取选中的权限ID
-            const selectedPermissions = [];
-            document.querySelectorAll('.permission-checkbox:checked').forEach(cb => {
-                selectedPermissions.push(parseInt(cb.value));
-            });
-            
-            // 提交权限更新
-            fetch(`${adminPath}/api/roles/{{ role.pk }}/permissions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    permissions: selectedPermissions
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    alert('权限更新成功');
-                    window.location.href = `${adminPath}/role/list`;
-                } else {
-                    alert('权限更新失败: ' + (data.message || '未知错误'));
+            try {
+                // 获取选中的权限ID
+                const selectedPermissions = Array.from(document.querySelectorAll('.permission-checkbox:checked'))
+                    .map(cb => parseInt(cb.value));
+                
+                // 提交权限更新
+                const response = await fetch(`${adminPath}/api/roles/{{ role.pk }}/permissions`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({permissions: selectedPermissions})
+                });
+                
+                const data = await response.json();
+                if (data.status !== 'success') {
+                    throw new Error(data.message || '{{ _("Update permissions failed") }}');
                 }
-            })
-            .catch(error => {
-                console.error('更新角色权限失败:', error);
-                alert('权限更新失败，请查看控制台');
-            });
+                
+                alert('{{ _("Save success") }}');
+                window.location.href = `${adminPath}/role/list`;
+                
+            } catch (error) {
+                console.error('{{ _("Save failed") }}:', error);
+                alert('{{ _("Save failed") }}: ' + error.message);
+            }
         });
     });
 </script>

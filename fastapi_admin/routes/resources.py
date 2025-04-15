@@ -238,6 +238,16 @@ async def update_view(
 ):
     obj = await model.get(pk=pk)
     inputs = await model_resource.get_inputs(request, obj)
+    
+    # 对于单对象视图，我们需要重新获取操作，并传入具体对象
+    try:
+        # 尝试获取对象的操作
+        if hasattr(model_resource.__class__, 'get_actions'):
+            actions = await model_resource.__class__.get_actions(request, obj)
+            setattr(model_resource, "actions", actions)
+    except Exception as e:
+        logger.warning(f"获取单对象操作失败: {str(e)}")
+    
     context = {
         "request": request,
         "resources": resources,

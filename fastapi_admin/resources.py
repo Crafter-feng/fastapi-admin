@@ -87,7 +87,19 @@ class Model(Resource):
     exclude_fields_on_edit: List[str] = []  # 编辑页面需要排除的字段列表，这些字段在编辑时不会显示，但在创建时仍会显示
     exclude_fields: List[str] = []  # 需要排除的字段列表，这些字段在编辑和创建时都不会显示
 
-    async def get_toolbar_actions(self, request: Request) -> List[ToolbarAction]:
+    @classmethod
+    async def get_bulk_actions(cls, request: Request) -> List[Action]:
+        return [
+            Action(
+                label=_("delete_selected"),
+                icon="ti ti-trash",
+                name="delete",
+                method=Method.DELETE,
+            ),
+        ]
+
+    @classmethod
+    async def get_toolbar_actions(cls, request: Request) -> List[ToolbarAction]:
         return [
             ToolbarAction(
                 label=_("create"),
@@ -108,22 +120,22 @@ class Model(Resource):
     async def cell_attributes(self, request: Request, obj: dict, field: Field) -> dict:
         return {}
 
-    async def get_actions(self, request: Request) -> List[Action]:
+    @classmethod
+    async def get_actions(cls, request: Request, obj=None) -> List[Action]:
+        """获取对象操作列表
+        
+        Args:
+            request: 请求对象
+            obj: 可选，当前操作的对象实例。在列表视图中可能为None
+            
+        Returns:
+            操作列表
+        """
         return [
             Action(
                 label=_("update"), icon="ti ti-edit", name="update", method=Method.GET, ajax=False
             ),
             Action(label=_("delete"), icon="ti ti-trash", name="delete", method=Method.DELETE),
-        ]
-
-    async def get_bulk_actions(self, request: Request) -> List[Action]:
-        return [
-            Action(
-                label=_("delete_selected"),
-                icon="ti ti-trash",
-                name="delete",
-                method=Method.DELETE,
-            ),
         ]
 
     @classmethod

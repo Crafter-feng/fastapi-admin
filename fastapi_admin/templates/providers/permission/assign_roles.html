@@ -15,10 +15,10 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">{{ _('User') }}：{{ user.username }}</h3>
+                    <h3 class="card-title">{{ _('User') }}: {{ user.username }}</h3>
                 </div>
                 <div class="card-body">
-                    <form id="roles-form">
+                    <form id="role-form">
                         <div class="row mb-3">
                             <div class="col">
                                 <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column">
@@ -33,6 +33,7 @@
                                             <div class="form-selectgroup-label-content d-flex align-items-center">
                                                 <div>
                                                     <div class="font-weight-medium">{{ role.label }}</div>
+                                                    <div class="text-muted small">{{ role.description or _('No description') }}</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -42,7 +43,7 @@
                             </div>
                         </div>
                         <div class="form-footer">
-                            <button type="submit" class="btn btn-primary">{{ _('Save Roles') }}</button>
+                            <button type="submit" class="btn btn-primary">{{ _('Save') }}</button>
                             <a href="{{ request.app.admin_path }}/user/list" class="btn btn-secondary ms-2">{{ _('Back') }}</a>
                         </div>
                     </form>
@@ -56,42 +57,36 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const rolesForm = document.getElementById('roles-form');
+        const roleForm = document.getElementById('role-form');
         const adminPath = '{{ request.app.admin_path }}';
         
-        // 提交角色表单
-        rolesForm.addEventListener('submit', function(e) {
+        roleForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            // 获取选中的角色ID
-            const selectedRoles = [];
-            document.querySelectorAll('.role-checkbox:checked').forEach(cb => {
-                selectedRoles.push(parseInt(cb.value));
-            });
-            
-            // 提交角色更新
-            fetch(`${adminPath}/api/users/{{ user.pk }}/roles`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    roles: selectedRoles
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    alert('{{ _("Roles update success") }}');
-                    window.location.href = `${adminPath}/user/list`;
-                } else {
-                    alert('{{ _("Roles update failed") }}: ' + (data.message || '{{ _("Unknown error") }}'));
+            try {
+                // 获取选中的角色ID
+                const selectedRoles = Array.from(document.querySelectorAll('.role-checkbox:checked'))
+                    .map(cb => parseInt(cb.value));
+                
+                // 提交角色更新
+                const response = await fetch(`${adminPath}/api/users/{{ user.pk }}/roles`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({roles: selectedRoles})
+                });
+                
+                const data = await response.json();
+                if (data.status !== 'success') {
+                    throw new Error(data.message || '{{ _("Update roles failed") }}');
                 }
-            })
-            .catch(error => {
-                console.error('{{ _("Update user roles failed") }}:', error);
-                alert('{{ _("Roles update failed, please check console") }}');
-            });
+                
+                alert('{{ _("Save success") }}');
+                window.location.href = `${adminPath}/user/list`;
+                
+            } catch (error) {
+                console.error('{{ _("Save failed") }}:', error);
+                alert('{{ _("Save failed") }}: ' + error.message);
+            }
         });
     });
 </script>

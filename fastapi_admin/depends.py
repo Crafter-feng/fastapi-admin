@@ -33,9 +33,44 @@ async def get_model_resource(request: Request, model=Depends(get_model)):
         logger.warning(f"未找到模型资源: {model}")
         raise HTTPException(status_code=HTTP_404_NOT_FOUND)
     logger.debug(f"找到模型资源: {model_resource}")
-    actions = await model_resource.get_actions(request)
-    bulk_actions = await model_resource.get_bulk_actions(request)
-    toolbar_actions = await model_resource.get_toolbar_actions(request)
+    
+    # 检查当前视图类型，确定是否需要提供obj参数
+    path = request.url.path
+    # 检查是列表视图还是创建视图（都不需要obj参数）
+    is_single_object_view = not (path.endswith('/list') or path.endswith('/create'))
+    
+    # 安全地获取操作
+    try:
+        # 尝试获取操作列表
+        if is_single_object_view:
+            # 后面在资源路由中会处理单对象视图，这里不需要对象
+            logger.debug("单对象视图，但在当前阶段不需要obj参数")
+        
+        # 对于列表和创建视图直接调用
+        actions = await model_resource.get_actions(request)
+        logger.debug(f"获取操作列表成功: {len(actions)} 个操作")
+    except (TypeError, AttributeError) as e:
+        # 如果方法调用失败，记录错误并使用空列表
+        logger.warning(f"获取操作列表失败: {str(e)}")
+        actions = []
+    
+    # 安全地获取批量操作
+    try:
+        bulk_actions = await model_resource.get_bulk_actions(request)
+        logger.debug(f"获取批量操作成功: {len(bulk_actions)} 个操作")
+    except (TypeError, AttributeError) as e:
+        logger.warning(f"获取批量操作失败: {str(e)}")
+        bulk_actions = []
+    
+    # 安全地获取工具栏操作
+    try:
+        toolbar_actions = await model_resource.get_toolbar_actions(request)
+        logger.debug(f"获取工具栏操作成功: {len(toolbar_actions)} 个操作")
+    except (TypeError, AttributeError) as e:
+        logger.warning(f"获取工具栏操作失败: {str(e)}")
+        toolbar_actions = []
+    
+    # 设置属性
     setattr(model_resource, "toolbar_actions", toolbar_actions)
     setattr(model_resource, "actions", actions)
     setattr(model_resource, "bulk_actions", bulk_actions)

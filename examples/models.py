@@ -102,7 +102,7 @@ class Permission(AbstractPermission):
 
 class Role(AbstractRole):
     """角色模型"""
-    pass
+    description = fields.CharField(max_length=500, null=True, description="角色描述")
     
     # 与权限的多对多关系
     permissions = fields.ManyToManyField("models.Permission", related_name="roles")
