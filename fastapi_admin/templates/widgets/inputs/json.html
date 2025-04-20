@@ -1,40 +1,53 @@
-<script src="https://cdn.jsdelivr.net/npm/jsoneditor@9.4.0/dist/jsoneditor.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsoneditor@9.4.0/dist/jsoneditor.min.css">
-<div class="form-label">{{ label }}</div>
-<div id="{{ name }}" class="form-group mb-3"></div>
-{% if help_text %}
-    <small class="form-hint">
-        {{ help_text }}
-    </small>
-{% endif %}
-<input {% if not null %}required{% endif %} type="text" name="{{ name }}" value='{{ value|safe }}' hidden>
-<style>
-    .jsoneditor {
-        border: 1px solid #dadcde;
-        border-radius: 4px;
-
-    }
-
-    .jsoneditor-menu {
-        background-color: rgba(35, 46, 60, .7);
-        border-bottom: #dadcde;
-    }
-
-</style>
-<script>
-    const container_{{ name }} = document.getElementById("{{name}}")
-    let options_{{ name }} = {{options|safe}};
-    if (Object.keys(options_{{ name }}).length === 0) {
-        options_{{ name }} = {
-            modes: ['tree', 'view', 'form', 'code', 'text', 'preview'],
-        }
-    }
-    options_{{ name }}.onChangeText = function (json) {
-        $('input[name={{ name }}]').val(json);
-    }
-    const editor_{{ name }} = new JSONEditor(container_{{ name }}, options_{{ name }})
-    {% if value %}
-        editor_{{ name }}.set({{ value|safe }})
+{% with id = 'json-' + name %}
+<div class="form-group mb-3">
+    <label class="form-label">{{ label }}</label>
+    <textarea 
+        class="form-control" 
+        name="{{ name }}" 
+        id="{{ id }}"
+        rows="10"
+        placeholder="{{ placeholder }}"
+        aria-label="{{ label }}"
+        {% if not null %}required{% endif %} 
+        {% if disabled %}disabled{% endif %}>{{ value|safe }}</textarea>
+    {% if help_text %}
+    <div class="mt-1">
+        <small class="form-hint">
+            {{ help_text }}
+        </small>
+    </div>
     {% endif %}
-    editor_{{ name }}.expandAll();
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // 获取文本区域元素
+        const textarea = document.getElementById("{{ id }}");
+        if (!textarea) return;
+        
+        // 尝试格式化JSON
+        try {
+            const json = textarea.value.trim();
+            if (json) {
+                const parsed = JSON.parse(json);
+                textarea.value = JSON.stringify(parsed, null, 2);
+            }
+        } catch (e) {
+            console.error("格式化JSON失败", e);
+        }
+        
+        // 监听文本变化，验证JSON格式
+        textarea.addEventListener("input", function() {
+            try {
+                const json = textarea.value.trim();
+                if (json) {
+                    JSON.parse(json);
+                    textarea.setCustomValidity("");
+                }
+            } catch (e) {
+                textarea.setCustomValidity("无效的JSON格式");
+            }
+        });
+    });
 </script>
+{% endwith %}

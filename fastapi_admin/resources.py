@@ -651,115 +651,155 @@ class Model(Resource):
 
     @classmethod
     async def resolve_data(cls, request: Request, data: FormData):
+        """解析请求数据
+        
+        Args:
+            request: 请求对象
+            data: 表单数据，JSON格式时为None
+            
+        Returns:
+            (解析后的数据, 多对多关系数据)
+        """
         ret = {}
+        m2m_data = {}  # 用于存储多对多关系数据
+        
+        # 检查请求类型和内容类型
+        content_type = request.headers.get("content-type", "")
+        logger.info(f"处理请求数据，内容类型: {content_type}")
+        
         # 检查是否在编辑模式
         path = request.url.path
         is_update = '/update/' in path
+        logger.info(f"当前操作模式: {'更新' if is_update else '创建'}, 路径: {path}")
         
-        # 处理自定义表单字段，如角色和权限
-        custom_fields = {}
-        for name, values in data.multi_items():
-            if name.endswith('[]'):
-                base_name = name[:-2]
-                if base_name not in custom_fields:
-                    custom_fields[base_name] = []
-                custom_fields[base_name].append(values)
-        
-        # 获取模型元数据
-        meta = getattr(cls.model, '_meta', None)
-        
-        # 自动检测关联字段
-        m2m_fields = set()
-        fk_fields = set()
-        if meta:
-            if hasattr(meta, 'm2m_fields'):
-                m2m_fields.update(meta.m2m_fields)
-            if hasattr(meta, 'fk_fields'):
-                fk_fields.update(meta.fk_fields)
-        
-        for field in cls.get_fields(is_display=False):
-            input_ = field.input
-            if input_.context.get("disabled") or isinstance(input_, inputs.DisplayOnly):
-                continue
-            name = input_.context.get("name")
-            # 如果在全局排除列表中，则跳过
-            if name in cls.exclude_fields:
-                continue
-            # 如果在编辑模式下且字段在编辑排除列表中，则跳过
-            if is_update and name in cls.exclude_fields_on_edit:
-                continue
-                
-            # 处理外键字段
-            if name in fk_fields or isinstance(input_, inputs.ForeignKey):
-                v = data.getlist(name)[0] if data.getlist(name) else None
-                ret[name] = int(v) if v and v.isdigit() else None
-                continue
-                
-            # 处理多对多字段和多选字段
-            if name in m2m_fields or isinstance(input_, inputs.MultiSelect):
-                # 获取多选值
-                values = data.getlist(name)
-                
-                # 从自定义字段中获取值
-                if not values and name in custom_fields:
-                    values = custom_fields[name]
-                    
-                # 空值处理
-                if not values:
-                    values = []
-                elif len(values) == 1 and values[0] == '':
-                    values = []
-                
-                # 处理值列表，确保正确格式
-                parsed_values = []
-                for val in values:
-                    if isinstance(val, list):
-                        # 如果已经是列表，展平它
-                        parsed_values.extend(val)
-                    else:
-                        # 单个值直接添加
-                        parsed_values.append(val)
-                
-                # 过滤掉空值
-                parsed_values = [v for v in parsed_values if v]
-                
-                # 如果有值，尝试使用MultiSelect的parse_value方法
-                if parsed_values and isinstance(input_, inputs.MultiSelect):
-                    try:
-                        ret[name] = await input_.parse_value(request, parsed_values)
-                    except Exception:
-                        # 如果解析失败，直接使用原始值
-                        ret[name] = parsed_values
+        # 解析JSON数据
+        try:
+            json_data = await request.json()
+            logger.info(f"JSON数据解析完成: {json.dumps(json_data, ensure_ascii=False)[:200]}...")
+            
+            # 遍历JSON数据记录字段
+            for key, value in json_data.items():
+                if isinstance(value, list):
+                    logger.info(f"字段 {key} 是列表数据，值: {value}")
                 else:
-                    # 直接使用过滤后的值列表
-                    ret[name] = parsed_values
+                    logger.info(f"字段 {key}: {value}")
+            
+            # 获取模型元数据
+            meta = getattr(cls.model, '_meta', None)
+            
+            # 自动检测关联字段
+            m2m_fields = set()
+            fk_fields = set()
+            if meta:
+                if hasattr(meta, 'm2m_fields'):
+                    m2m_fields.update(meta.m2m_fields)
+                    logger.info(f"检测到多对多字段: {m2m_fields}")
+                if hasattr(meta, 'fk_fields'):
+                    fk_fields.update(meta.fk_fields)
+                    logger.info(f"检测到外键字段: {fk_fields}")
+            
+            # 处理模型字段
+            field_count = 0
+            for field in cls.get_fields(is_display=False):
+                field_count += 1
+                input_ = field.input
+                if input_.context.get("disabled") or isinstance(input_, inputs.DisplayOnly):
+                    logger.debug(f"字段 {input_.context.get('name')} 是禁用的或只读的，跳过")
+                    continue
                     
-                continue
+                name = input_.context.get("name")
                 
-            # 处理标准字段
-            v = data.get(name)
-            value = await input_.parse_value(request, v)
-            if value is None:
-                continue
-            ret[name] = value
-        
-        # 处理表单中的非模型字段
-        for name, value in data.items():
-            if (name not in ret and name != "save" and name != "saveandedit" and 
-                name not in custom_fields and not name.endswith('[]')):
+                # 如果在全局排除列表中，则跳过
+                if name in cls.exclude_fields:
+                    logger.debug(f"字段 {name} 在全局排除列表中，跳过")
+                    continue
+                    
+                # 如果在编辑模式下且字段在编辑排除列表中，则跳过
+                if is_update and name in cls.exclude_fields_on_edit:
+                    logger.debug(f"编辑模式下字段 {name} 在编辑排除列表中，跳过")
+                    continue
+                
+                # 如果字段不在JSON数据中，跳过
+                if name not in json_data:
+                    logger.debug(f"字段 {name} 不在JSON数据中，跳过")
+                    continue
+                
+                # 获取字段值
+                value = json_data.get(name)
+                
+                # 处理外键字段
+                if name in fk_fields or isinstance(input_, inputs.ForeignKey):
+                    ret[name] = int(value) if value and (isinstance(value, str) and value.isdigit() or isinstance(value, int)) else None
+                    logger.info(f"处理外键字段 {name}: {ret[name]}")
+                    continue
+                    
+                # 处理多对多字段和多选字段
+                if name in m2m_fields or isinstance(input_, inputs.MultiSelect):
+                    # 获取多选值
+                    values = value if isinstance(value, list) else [value] if value else []
+                    
+                    # 空值处理
+                    if not values:
+                        values = []
+                        logger.debug(f"字段 {name} 没有值")
+                    
+                    # 过滤掉空值
+                    values = [v for v in values if v]
+                    
+                    # 如果有值，尝试使用MultiSelect的parse_value方法
+                    if values and isinstance(input_, inputs.MultiSelect):
+                        try:
+                            ret[name] = await input_.parse_value(request, values)
+                            logger.info(f"使用MultiSelect处理字段 {name}: {values} -> {ret[name]}")
+                        except Exception as e:
+                            logger.error(f"解析多选字段 {name} 失败: {str(e)}")
+                            # 如果解析失败，直接使用原始值
+                            ret[name] = values
+                            logger.info(f"使用原始值作为字段 {name} 的值: {values}")
+                    else:
+                        # 直接使用过滤后的值列表
+                        ret[name] = values
+                        logger.info(f"设置字段 {name} 的值为: {values}")
+                        
+                    continue
+                    
+                # 处理标准字段
+                try:
+                    parsed_value = await input_.parse_value(request, value)
+                    if parsed_value is not None:
+                        ret[name] = parsed_value
+                        logger.info(f"处理标准字段 {name}: {value} -> {parsed_value}")
+                    else:
+                        logger.debug(f"字段 {name} 解析值为None，跳过")
+                except Exception as e:
+                    logger.error(f"解析字段 {name} 失败: {str(e)}")
+            
+            logger.info(f"处理了 {field_count} 个模型字段")
+            
+            # 处理表单中的非模型字段
+            for name, value in json_data.items():
+                # 如果字段已经处理过，或者是系统字段，跳过
+                if name in ret or name == "save" or name == "save_and_return" or name == "save_and_add_another":
+                    continue
                 
                 # 检查是否是多值字段
-                values = data.getlist(name)
-                if len(values) > 1:
+                if isinstance(value, list):
                     # 将多个值作为列表保存
-                    parsed_values = [int(v) if v.isdigit() else v for v in values if v]
+                    parsed_values = [int(v) if isinstance(v, str) and v.isdigit() or isinstance(v, int) else v for v in value if v]
                     ret[name] = parsed_values
+                    logger.info(f"处理非模型多值字段 {name}: {parsed_values}")
                 else:
                     # 单个值直接保存
-                    if value:
-                        ret[name] = int(value) if value.isdigit() else value
-        
-        return ret, {}
+                    if value is not None:
+                        ret[name] = int(value) if isinstance(value, str) and value.isdigit() or isinstance(value, int) else value
+                        logger.info(f"处理非模型字段 {name}: {value}")
+            
+            logger.info(f"数据处理完成，最终数据: {json.dumps(ret, ensure_ascii=False, default=str)[:200]}...")
+            return ret, {}
+            
+        except Exception as e:
+            logger.error(f"解析JSON数据时出错: {str(e)}")
+            raise Exception(f"解析JSON数据失败: {str(e)}")
 
     @classmethod
     async def get_filters(cls, request: Request, values: Optional[dict] = None):
@@ -893,6 +933,106 @@ class Model(Resource):
             if field in cls.model._meta.fk_fields:
                 ret.append(field)
         return ret
+
+    @classmethod
+    async def save(cls, request: Request, obj, data, m2m_data=None):
+        """保存数据到模型实例
+        
+        Args:
+            request: 请求对象
+            obj: 模型实例，更新时不为None，创建时为None
+            data: 表单或JSON数据
+            m2m_data: 多对多关系数据，默认为空字典
+            
+        Returns:
+            保存后的模型实例
+        """
+        logger.info(f"{'更新' if obj else '创建'} {cls.model.__name__} 对象")
+        
+        # 记录提交的数据
+        logger.info(f"表单数据: {data}")
+        
+        # 获取模型元数据
+        meta = getattr(cls.model, '_meta', None)
+        
+        # 创建或更新对象
+        if obj is None:
+            # 创建新对象
+            logger.info(f"创建新 {cls.model.__name__} 对象")
+            obj = cls.model(**data)
+            await obj.save()
+            logger.info(f"成功创建对象，ID: {obj.pk}")
+        else:
+            # 更新现有对象
+            logger.info(f"更新 {cls.model.__name__} 对象，ID: {obj.pk}")
+            
+            # 获取要更新的字段
+            update_fields = []
+            for key, value in data.items():
+                # 跳过主键和多对多字段
+                if key == 'pk' or (meta and hasattr(meta, 'm2m_fields') and key in meta.m2m_fields):
+                    continue
+                    
+                try:
+                    # 设置属性值
+                    setattr(obj, key, value)
+                    update_fields.append(key)
+                    logger.debug(f"设置字段 {key} = {value}")
+                except Exception as e:
+                    logger.error(f"设置字段 {key} 值时出错: {str(e)}")
+            
+            # 保存对象
+            if update_fields:
+                await obj.save(update_fields=update_fields)
+                logger.info(f"成功更新对象，更新的字段: {update_fields}")
+            else:
+                logger.warning("没有可更新的字段")
+        
+        # 处理多对多关系
+        if meta and hasattr(meta, 'm2m_fields'):
+            m2m_fields = meta.m2m_fields
+            for field_name in m2m_fields:
+                if field_name in data:
+                    try:
+                        # 获取关系管理器
+                        relation_manager = getattr(obj, field_name)
+                        
+                        # 获取关联的ID列表
+                        related_ids = data.get(field_name, [])
+                        if not related_ids:
+                            # 如果没有值，则清空关系
+                            logger.info(f"清空 {field_name} 关系")
+                            await relation_manager.clear()
+                            continue
+                            
+                        # 确保列表格式
+                        if not isinstance(related_ids, list):
+                            related_ids = [related_ids]
+                            
+                        # 过滤无效值
+                        valid_ids = []
+                        for item in related_ids:
+                            if item and (str(item).isdigit() or isinstance(item, int)):
+                                valid_ids.append(int(item))
+                                
+                        logger.info(f"设置 {field_name} 关系，关联ID: {valid_ids}")
+                        
+                        # 获取关联模型
+                        related_model = meta.fields_map[field_name].related_model
+                        
+                        # 清除旧关系
+                        await relation_manager.clear()
+                        
+                        # 添加新关系
+                        if valid_ids:
+                            related_objs = await related_model.filter(pk__in=valid_ids)
+                            await relation_manager.add(*related_objs)
+                            logger.info(f"成功设置 {field_name} 关系，添加了 {len(related_objs)} 个关联对象")
+                    except Exception as e:
+                        logger.error(f"处理 {field_name} 多对多关系时出错: {str(e)}")
+        
+        # 返回对象
+        return obj
 
 
 class Dropdown(Resource):

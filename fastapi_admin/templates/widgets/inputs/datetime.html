@@ -1,27 +1,47 @@
-<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
-<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css"/>
-<div class="form-group">
+{% with id = 'datetime-' + name %}
+<div class="form-group mb-3">
     <label class="form-label">{{ label }}</label>
-    <input {% if not null %}required{% endif %} type="{{ input_type }}" class="form-control" name="{{ name }}"
-           placeholder="{{ placeholder }}" {% if disabled %}disabled{% endif %} value="{{ value }}">
+    <div class="input-icon">
+        <input 
+            type="text" 
+            class="form-control" 
+            name="{{ name }}"
+            id="{{ id }}"
+            placeholder="{{ placeholder }}" 
+            value="{{ value }}"
+            aria-label="{{ label }}"
+            {% if not null %}required{% endif %} 
+            {% if disabled %}disabled{% endif %}>
+        <span class="input-icon-addon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M11 15h1" /><path d="M12 15v3" /></svg>
+        </span>
+    </div>
     {% if help_text %}
+    <div class="mt-1">
         <small class="form-hint">
             {{ help_text }}
         </small>
+    </div>
     {% endif %}
 </div>
 
-{% block script %}
-    <script>
-        $(function () {
-            $('input[name="{{ name }}"]').daterangepicker({
-                singleDatePicker: true,
-                timePicker: true,
-                showDropdowns: true,
-                locale: {
-                    format: 'YYYY-MM-DD HH:mm:ss'
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var dateInput = document.getElementById('{{ id }}');
+        if (dateInput) {
+            new Litepicker({ 
+                element: dateInput,
+                format: 'YYYY-MM-DD HH:mm:ss',
+                singleMode: true,
+                showWeekNumbers: false,
+                plugins: ['mobilefriendly'],
+                datetime: true,
+                buttonText: {
+                    previousMonth: '<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 6l-6 6l6 6" /></svg>',
+                    nextMonth: '<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 6l6 6l-6 6" /></svg>',
                 }
             });
-        });
-    </script>
-{% endblock %}
+        }
+    });
+</script>
+{% endwith %}

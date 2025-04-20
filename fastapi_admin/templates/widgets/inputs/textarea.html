@@ -1,11 +1,19 @@
 <div class="form-group mb-3">
     <label class="form-label">{{ label }}</label>
-    <textarea {% if not null %}required{% endif %} class="form-control" name="{{ name }}"
-              placeholder="{{ placeholder }}"
-              {% if disabled %}disabled{% endif %}>{{ value }}</textarea>
+    <textarea 
+        class="form-control" 
+        name="{{ name }}" 
+        id="textarea-{{ name }}"
+        placeholder="{{ placeholder }}"
+        rows="6"
+        aria-label="{{ label }}"
+        {% if not null %}required{% endif %} 
+        {% if disabled %}disabled{% endif %}>{{ value }}</textarea>
     {% if help_text %}
+    <div class="mt-1">
         <small class="form-hint">
             {{ help_text }}
         </small>
+    </div>
     {% endif %}
 </div>

@@ -6,7 +6,7 @@
                 <h3 class="card-title">{{ resource_label }}</h3>
             </div>
             <div class="card-body border-bottom py-3">
-                <form method="post" action="{{ request.app.admin_path }}/{{ resource }}/create" enctype="{{ model_resource.enctype }}">
+                <form id="createForm" method="post" action="{{ request.app.admin_path }}/{{ resource }}/create" enctype="{{ model_resource.enctype }}">
                     {% for input in inputs %}
                         {{ input|safe }}
                     {% endfor %}
@@ -21,4 +21,91 @@
             </div>
         </div>
     </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('createForm');
+  
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // 显示加载中提示
+    const saveBtn = e.submitter || form.querySelector('button[name="save"]');
+    const originalText = saveBtn.innerHTML;
+    const buttonName = saveBtn.name;
+    saveBtn.innerHTML = '保存中...';
+    saveBtn.disabled = true;
+    
+    // 获取表单数据并转换为JSON格式
+    const formData = new FormData(form);
+    const jsonData = {};
+    
+    // 添加提交按钮信息
+    if (buttonName) {
+      jsonData[buttonName] = true;
+    }
+    
+    formData.forEach((value, key) => {
+      // 处理多选字段 (如select multiple)
+      if (key.endsWith('[]')) {
+        const baseKey = key.slice(0, -2);
+        if (!jsonData[baseKey]) {
+          jsonData[baseKey] = [];
+        }
+        jsonData[baseKey].push(value);
+      } else if (jsonData[key]) {
+        // 如果字段已存在且不是数组，转换为数组
+        if (!Array.isArray(jsonData[key])) {
+          jsonData[key] = [jsonData[key]];
+        }
+        jsonData[key].push(value);
+      } else {
+        jsonData[key] = value;
+      }
+    });
+    
+    console.log('创建表单数据JSON格式：', jsonData);
+    
+    // 使用Fetch API发送JSON数据
+    fetch(form.action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(jsonData)
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log('响应数据：', data);
+      
+      if (data.status === 'success') {
+        // 成功处理
+        const saveAndAddAnother = buttonName === 'save_and_add_another';
+        if (saveAndAddAnother) {
+          // 重置表单并显示成功消息
+          form.reset();
+          alert('创建成功，可以继续添加');
+          saveBtn.innerHTML = originalText;
+          saveBtn.disabled = false;
+        } else {
+          // 跳转到列表页
+          window.location.href = "{{ request.app.admin_path }}/{{ resource }}/list";
+        }
+      } else {
+        // 错误处理
+        alert('创建失败: ' + (data.message || '未知错误'));
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+      }
+    })
+    .catch(error => {
+      console.error('提交表单时出错：', error);
+      alert('提交表单时出错: ' + error.message);
+      saveBtn.innerHTML = originalText;
+      saveBtn.disabled = false;
+    });
+  });
+});
+</script>
 {% endblock %}

@@ -1,13 +1,13 @@
 {% extends 'widgets/inputs/base.html' %}
 
 {% block content %}
+{% with id = 'form-select-' + name %}
 <div class="form-group mb-3">
     <label class="form-label">{{ label }}</label>
-    
-    <!-- 多选下拉框 -->
-    <select name="{{ name }}" id="{{ name }}" class="form-select form-multi-select" multiple
-        data-choices-placeholder="{{ placeholder }}"
-        aria-label="{{ label or name }}"
+    <select class="form-select" name="{{ name }}" id="{{ id }}" multiple
+        data-placeholder="{{ placeholder }}"
+        aria-label="{{ label }}"
+        title="{{ label }}"
         {% if not null %}required{% endif %}
         {% if disabled %}disabled{% endif %}>
         {% for option in options %}
@@ -18,34 +18,14 @@
         </option>
         {% endfor %}
     </select>
-    
     {% if help_text %}
-    <small class="form-hint">
-        {{ help_text }}
-    </small>
+    <div class="mt-2">
+        <small class="form-hint">
+            {{ help_text }}
+        </small>
+    </div>
     {% endif %}
 </div>
-
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        var element = document.getElementById("{{ name }}");
-        if (element) {
-            new Choices(element, {
-                classNames: {
-                    containerInner: 'form-multi-select',
-                    input: 'form-control',
-                    inputCloned: 'form-control-sm',
-                    listDropdown: 'dropdown-menu',
-                    itemChoice: 'dropdown-item',
-                    activeState: 'show',
-                    selectedState: 'active',
-                },
-                shouldSort: false,
-                removeItemButton: true,
-                placeholder: true,
-                placeholderValue: "{{ placeholder }}"
-            });
-        }
-    });
-</script>
+{% include "components/multiselect.html" %}
+{% endwith %}
 {% endblock %} 

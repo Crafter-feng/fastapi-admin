@@ -175,45 +175,42 @@ async def update(
     resources=Depends(get_resources),
     model=Depends(get_model),
 ):
-    form = await request.form()
-    data, m2m_data = await model_resource.resolve_data(request, form)
+    logger.info(f"接收到更新请求: resource={resource}, pk={pk}")
+    
+    # 强制使用JSON格式
+    content_type = request.headers.get("content-type", "")
+    if "application/json" not in content_type:
+        logger.error(f"请求格式错误，仅支持JSON格式: {content_type}")
+        return {"status": "error", "message": "仅支持JSON格式，请设置Content-Type: application/json"}
+    
+    # 处理JSON数据
+    try:
+        logger.info("处理JSON格式更新请求")
+        data, m2m_data = await model_resource.resolve_data(request, None)
+    except Exception as e:
+        logger.error(f"解析JSON数据失败: {str(e)}")
+        return {"status": "error", "message": f"数据解析错误: {str(e)}"}
     
     # 获取要更新的对象
-    obj = await model.get(pk=pk)
+    try:
+        obj = await model.get(pk=pk)
+    except Exception as e:
+        logger.error(f"获取对象失败: {str(e)}")
+        return {"status": "error", "message": f"未找到ID为{pk}的对象"}
     
-    # 使用改进的save方法更新对象和多对多关系
+    # 更新对象
     try:
         await model_resource.save(request, obj, data, m2m_data=m2m_data)
+        logger.info(f"成功更新对象: {resource} #{pk}")
         
         # 记录更新操作日志
         await log_admin_action(request, model, obj, "edit")
     except Exception as e:
         logger.error(f"更新对象时出错: {str(e)}")
+        return {"status": "error", "message": f"更新失败: {str(e)}"}
     
-    inputs = await model_resource.get_inputs(request, obj)
-    if "save" in form.keys():
-        context = {
-            "request": request,
-            "resources": resources,
-            "resource_label": model_resource.label,
-            "resource": resource,
-            "model_resource": model_resource,
-            "inputs": inputs,
-            "pk": pk,
-            "page_title": model_resource.page_title,
-            "page_pre_title": model_resource.page_pre_title,
-        }
-        try:
-            return templates.TemplateResponse(
-                f"{resource}/update.html",
-                context=context,
-            )
-        except TemplateNotFound:
-            return templates.TemplateResponse(
-                "update.html",
-                context=context,
-            )
-    return redirect(request, "list_view", resource=resource)
+    # 返回成功响应
+    return {"status": "success", "message": "更新成功", "data": {"id": pk}}
 
 
 @router.get("/{resource}/update/{pk}")
@@ -349,42 +346,35 @@ async def create(
     model_resource: ModelResource = Depends(get_model_resource),
     model=Depends(get_model),
 ):
-    inputs = await model_resource.get_inputs(request)
-    form = await request.form()
-    data, m2m_data = await model_resource.resolve_data(request, form)
+    logger.info(f"接收到创建请求: resource={resource}")
     
-    # 使用改进的save方法创建对象和处理多对多关系
+    # 强制使用JSON格式
+    content_type = request.headers.get("content-type", "")
+    if "application/json" not in content_type:
+        logger.error(f"请求格式错误，仅支持JSON格式: {content_type}")
+        return {"status": "error", "message": "仅支持JSON格式，请设置Content-Type: application/json"}
+    
+    # 处理JSON数据
+    try:
+        logger.info("处理JSON格式创建请求")
+        data, m2m_data = await model_resource.resolve_data(request, None)
+    except Exception as e:
+        logger.error(f"解析JSON数据失败: {str(e)}")
+        return {"status": "error", "message": f"数据解析错误: {str(e)}"}
+    
+    # 创建对象
     try:
         obj = await model_resource.save(request, None, data, m2m_data=m2m_data)
+        logger.info(f"成功创建对象: {resource} #{obj.pk if obj else 'unknown'}")
         
         # 记录创建操作日志
         await log_admin_action(request, model, obj, "create")
     except Exception as e:
         logger.error(f"创建对象时出错: {str(e)}")
-        obj = None
+        return {"status": "error", "message": f"创建失败: {str(e)}"}
     
-    if "save" in form.keys():
-        return redirect(request, "list_view", resource=resource)
-    context = {
-        "request": request,
-        "resources": resources,
-        "resource_label": model_resource.label,
-        "resource": resource,
-        "inputs": inputs,
-        "model_resource": model_resource,
-        "page_title": model_resource.page_title,
-        "page_pre_title": model_resource.page_pre_title,
-    }
-    try:
-        return templates.TemplateResponse(
-            f"{resource}/create.html",
-            context=context,
-        )
-    except TemplateNotFound:
-        return templates.TemplateResponse(
-            "create.html",
-            context=context,
-        )
+    # 返回成功响应
+    return {"status": "success", "message": "创建成功", "data": {"id": obj.pk if obj else None}}
 
 
 @router.delete("/{resource}/delete/{pk}")

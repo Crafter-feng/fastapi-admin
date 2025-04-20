@@ -1,10 +1,62 @@
+{% with id = 'color-' + name %}
 <div class="form-group mb-3">
     <label class="form-label">{{ label }}</label>
-    <input {% if not null %}required{% endif %} type="color" class="form-control form-control-color" name="{{ name }}"
-           placeholder="{{ placeholder }}" {% if disabled %}disabled{% endif %} value="{{ value }}">
+    <div class="row g-2 align-items-center">
+        <div class="col-auto">
+            <label class="form-colorinput">
+                <input 
+                    name="{{ name }}" 
+                    type="color" 
+                    class="form-control form-control-color" 
+                    id="{{ id }}"
+                    value="{% if value %}{{ value }}{% else %}#206bc4{% endif %}"
+                    title="{{ label }}"
+                    {% if not null %}required{% endif %} 
+                    {% if disabled %}disabled{% endif %}>
+            </label>
+        </div>
+        <div class="col">
+            <input 
+                type="text" 
+                class="form-control" 
+                value="{% if value %}{{ value }}{% else %}#206bc4{% endif %}"
+                id="{{ id }}-text"
+                placeholder="#RRGGBB"
+                pattern="^#[0-9A-Fa-f]{6}$"
+                aria-label="{{ label }} (HEX)" 
+                {% if disabled %}disabled{% endif %}>
+        </div>
+    </div>
     {% if help_text %}
+    <div class="mt-1">
         <small class="form-hint">
             {{ help_text }}
         </small>
+    </div>
     {% endif %}
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const colorInput = document.getElementById("{{ id }}");
+        const textInput = document.getElementById("{{ id }}-text");
+        
+        if (colorInput && textInput) {
+            // 同步颜色选择器到文本框
+            colorInput.addEventListener("input", function() {
+                textInput.value = colorInput.value;
+            });
+            
+            // 同步文本框到颜色选择器
+            textInput.addEventListener("input", function() {
+                if (/^#[0-9A-Fa-f]{6}$/.test(textInput.value)) {
+                    colorInput.value = textInput.value;
+                    textInput.setCustomValidity("");
+                } else {
+                    textInput.setCustomValidity("请输入有效的HEX颜色值，例如：#206bc4");
+                }
+            });
+        }
+    });
+</script>
+{% endwith %}

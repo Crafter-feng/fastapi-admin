@@ -3,13 +3,22 @@
         var selectElement = document.getElementById('{{ id }}');
         if (selectElement) {
             new TomSelect(selectElement, {
+                plugins: {
+                    remove_button: {
+                        title: '删除此项'
+                    },
+                    clear_button: {
+                        title: '清空选择'
+                    }
+                },
                 hideSelected: false,
                 persist: false,
                 createOnBlur: false,
                 create: false,
                 allowEmptyOption: true,
-                maxItems: 1
+                placeholder: "{{ placeholder }}",
+                maxItems: null
             });
         }
     });
-</script>
+</script> 
