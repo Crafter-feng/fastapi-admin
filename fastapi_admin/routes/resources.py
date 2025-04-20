@@ -1,10 +1,10 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, HTTPException
 from jinja2 import TemplateNotFound
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
-from starlette.status import HTTP_303_SEE_OTHER
+from starlette.status import HTTP_303_SEE_OTHER, HTTP_404_NOT_FOUND
 from tortoise import Model
 from tortoise.fields import ManyToManyRelation
 from tortoise.transactions import in_transaction
@@ -15,6 +15,8 @@ from fastapi_admin.resources import render_values
 from fastapi_admin.responses import redirect
 from fastapi_admin.template import templates
 from fastapi_admin.utils.logger import logger
+from fastapi_admin.models import AbstractAdmin
+from fastapi_admin.depends import get_current_user
 
 router = APIRouter()
 
@@ -175,32 +177,19 @@ async def update(
 ):
     form = await request.form()
     data, m2m_data = await model_resource.resolve_data(request, form)
-    m2m_fields = model_resource.get_m2m_field()
-    async with in_transaction() as conn:
-        obj = (
-            await model.filter(pk=pk)
-            .using_db(conn)
-            .select_for_update()
-            .get()
-            .prefetch_related(*m2m_fields)
-        )
-        await obj.update_from_dict(data).save(using_db=conn)
-        for k, items in m2m_data.items():
-            m2m_obj = getattr(obj, k)
-            await m2m_obj.clear()
-            if items:
-                await m2m_obj.add(*items)
-        obj = (
-            await model.filter(pk=pk)
-            .using_db(conn)
-            .select_related(*model_resource.get_fk_field())
-            .get()
-            .prefetch_related(*m2m_fields)
-        )
+    
+    # 获取要更新的对象
+    obj = await model.get(pk=pk)
+    
+    # 使用改进的save方法更新对象和多对多关系
+    try:
+        await model_resource.save(request, obj, data, m2m_data=m2m_data)
         
         # 记录更新操作日志
         await log_admin_action(request, model, obj, "edit")
-        
+    except Exception as e:
+        logger.error(f"更新对象时出错: {str(e)}")
+    
     inputs = await model_resource.get_inputs(request, obj)
     if "save" in form.keys():
         context = {
@@ -230,13 +219,46 @@ async def update(
 @router.get("/{resource}/update/{pk}")
 async def update_view(
     request: Request,
-    resource: str = Path(...),
-    pk: str = Path(...),
-    model_resource: ModelResource = Depends(get_model_resource),
-    resources=Depends(get_resources),
+    resource: str,
+    pk: str,
     model=Depends(get_model),
+    model_resource=Depends(get_model_resource),
+    resources=Depends(get_resources),
+    admin: AbstractAdmin = Depends(get_current_user),
 ):
-    obj = await model.get(pk=pk)
+    logger.info(f"开始获取 {resource} id={pk} 数据用于编辑")
+    
+    # 查询对象时预加载多对多关系
+    obj = None
+    
+    try:
+        # 检查模型是否有多对多字段
+        has_m2m = hasattr(model, '_meta') and hasattr(model._meta, 'm2m_fields') and model._meta.m2m_fields
+        
+        if has_m2m:
+            # 记录多对多字段
+            m2m_fields = model._meta.m2m_fields
+            logger.info(f"模型 {model.__name__} 有 {len(m2m_fields)} 个多对多字段: {m2m_fields}")
+            
+            # 使用prefetch_related预加载所有多对多关系
+            # 首先获取基本对象
+            obj = await model.get(pk=pk)
+            
+            # 然后预加载每个多对多关系
+            for field_name in m2m_fields:
+                try:
+                    relation = getattr(obj, field_name)
+                    related_objs = await relation.all()
+                    logger.info(f"预加载字段 {field_name} 成功，获取到 {len(related_objs)} 个关联对象")
+                except Exception as e:
+                    logger.error(f"预加载字段 {field_name} 失败: {str(e)}")
+        else:
+            # 没有多对多字段，直接获取对象
+            obj = await model.get(pk=pk)
+    except Exception as e:
+        logger.error(f"获取对象失败: {str(e)}")
+        raise HTTPException(status_code=404, detail=f"未找到 {resource} id={pk} 的对象")
+    
     inputs = await model_resource.get_inputs(request, obj)
     
     # 对于单对象视图，我们需要重新获取操作，并传入具体对象
@@ -246,19 +268,20 @@ async def update_view(
             actions = await model_resource.__class__.get_actions(request, obj)
             setattr(model_resource, "actions", actions)
     except Exception as e:
-        logger.warning(f"获取单对象操作失败: {str(e)}")
-    
+        logger.error(f"获取对象操作时出错: {str(e)}")
+        
     context = {
         "request": request,
         "resources": resources,
         "resource_label": model_resource.label,
         "resource": resource,
+        "model_resource": model_resource,
         "inputs": inputs,
         "pk": pk,
-        "model_resource": model_resource,
         "page_title": model_resource.page_title,
         "page_pre_title": model_resource.page_pre_title,
     }
+    
     try:
         return templates.TemplateResponse(
             f"{resource}/update.html",
@@ -278,14 +301,31 @@ async def create_view(
     resources=Depends(get_resources),
     model_resource: ModelResource = Depends(get_model_resource),
 ):
+    logger.info(f"开始创建 {resource} 表单")
+    
+    # 获取表单输入控件
     inputs = await model_resource.get_inputs(request)
+    
+    # 记录表单字段信息用于调试
+    field_names = []
+    for input_item in inputs:
+        # 安全获取字段名称
+        if hasattr(input_item, 'context') and isinstance(input_item.context, dict) and 'name' in input_item.context:
+            field_names.append(input_item.context.get('name'))
+        elif hasattr(input_item, 'name'):
+            field_names.append(input_item.name)
+        else:
+            field_names.append(str(type(input_item)))
+            
+    logger.info(f"创建表单包含 {len(inputs)} 个字段: {field_names}")
+    
     context = {
         "request": request,
         "resources": resources,
         "resource_label": model_resource.label,
         "resource": resource,
-        "inputs": inputs,
         "model_resource": model_resource,
+        "inputs": inputs,
         "page_title": model_resource.page_title,
         "page_pre_title": model_resource.page_pre_title,
     }
@@ -312,15 +352,17 @@ async def create(
     inputs = await model_resource.get_inputs(request)
     form = await request.form()
     data, m2m_data = await model_resource.resolve_data(request, form)
-    async with in_transaction() as conn:
-        obj = await model.create(**data, using_db=conn)
-        for k, items in m2m_data.items():
-            m2m_obj = getattr(obj, k)  # type:ManyToManyRelation
-            await m2m_obj.add(*items, using_db=conn)
+    
+    # 使用改进的save方法创建对象和处理多对多关系
+    try:
+        obj = await model_resource.save(request, None, data, m2m_data=m2m_data)
         
         # 记录创建操作日志
         await log_admin_action(request, model, obj, "create")
-        
+    except Exception as e:
+        logger.error(f"创建对象时出错: {str(e)}")
+        obj = None
+    
     if "save" in form.keys():
         return redirect(request, "list_view", resource=resource)
     context = {

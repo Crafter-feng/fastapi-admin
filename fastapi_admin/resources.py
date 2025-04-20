@@ -14,6 +14,7 @@ from fastapi_admin.exceptions import NoSuchFieldFound
 from fastapi_admin.i18n import _
 from fastapi_admin.widgets import Widget, displays, inputs
 from fastapi_admin.widgets.filters import Filter, Search
+from fastapi_admin.utils.logger import logger
 
 
 class Resource:
@@ -139,7 +140,80 @@ class Model(Resource):
         ]
 
     @classmethod
+    async def get_form_init(cls, request: Request, obj=None):
+        """获取表单初始化数据，可被子类重写以提供额外数据
+        
+        Args:
+            request: HTTP请求对象
+            obj: 可选的模型实例，在编辑模式下提供
+            
+        Returns:
+            包含表单初始化数据的字典
+        """
+        # 默认返回空字典，子类可扩展此方法
+        return {}
+        
+    @classmethod
+    async def save(cls, request: Request, obj, data, **kwargs):
+        """保存模型实例，处理一对多和多对多关系
+        
+        Args:
+            request: HTTP请求对象
+            obj: 模型实例，为None时表示创建新实例
+            data: 要保存的数据字典
+            **kwargs: 其他参数
+            
+        Returns:
+            保存后的模型实例
+        """
+        m2m_data = kwargs.get('m2m_data', {})
+        
+        if obj:
+            # 更新现有实例
+            await obj.update_from_dict(data).save()
+            saved_obj = obj
+        else:
+            # 创建新实例
+            saved_obj = await cls.model.create(**data)
+        
+        # 处理多对多关系
+        if m2m_data and saved_obj:
+            for field_name, related_objects in m2m_data.items():
+                if hasattr(saved_obj, field_name):
+                    relation = getattr(saved_obj, field_name)
+                    
+                    try:
+                        # 清除现有关联
+                        await relation.clear()
+                        
+                        # 添加新关联
+                        if related_objects:
+                            for rel_obj in related_objects:
+                                await relation.add(rel_obj)
+                            
+                            logger.debug(f"为 {cls.model.__name__} #{saved_obj.pk} 更新 {field_name} 关系: 添加 {len(related_objects)} 个对象")
+                    except Exception as e:
+                        logger.error(f"更新多对多关系 {field_name} 失败: {str(e)}")
+        
+        return saved_obj
+            
+    @classmethod
     async def get_inputs(cls, request: Request, obj: Optional[TortoiseModel] = None):
+        """
+        获取表单输入控件列表
+        
+        Args:
+            request: HTTP请求对象
+            obj: 可选的模型实例，在编辑模式下提供
+            
+        Returns:
+            表单输入控件列表
+        """
+        # 获取表单初始化数据
+        form_init = await cls.get_form_init(request, obj)
+        # 将表单初始化数据存储在请求状态中
+        request.state.form_init = form_init
+        
         ret = []
         for field in cls.get_fields(is_display=False):
             input_ = field.input
@@ -164,7 +238,60 @@ class Model(Resource):
                 value = str(getattr(obj, name, None))
                 ret.append(await input_.render(request, value))
                 continue
+            
+            # 处理多对多关系
+            if (
+                obj is not None
+                and hasattr(obj._meta, "m2m_fields")
+                and name in obj._meta.m2m_fields
+            ):
+                # 确保先加载关联数据
+                try:
+                    # 获取ManyToManyRelation对象
+                    value = getattr(obj, name)
+                    # 直接将关系对象传递给render方法处理
+                    ret.append(await input_.render(request, value))
+                    continue
+                except Exception as e:
+                    logger.error(f"加载多对多关系 {name} 失败: {str(e)}")
+            
             ret.append(await input_.render(request, getattr(obj, name, None)))
+
+        # 处理自定义表单字段
+        if hasattr(request.state, "form_init"):
+            for field_name, field_data in request.state.form_init.items():
+                # 只处理有options属性的字段，这些通常是下拉菜单或多选框
+                if "options" in field_data and isinstance(field_data["options"], list):
+                    # 检查是否已存在该字段（确保比较的对象是Field类型）
+                    existing_field = False
+                    for item in ret:
+                        # 检查item是否为Field对象或者字符串对象
+                        if hasattr(item, 'name') and item.name == field_name:
+                            existing_field = True
+                            break
+                        elif isinstance(item, str) and field_name in item:
+                            existing_field = True
+                            break
+                    
+                    if not existing_field:
+                        # 创建多选组件
+                        from fastapi_admin.widgets.inputs import MultiSelect
+                        
+                        # 获取选中项
+                        selected = field_data.get("selected", [])
+                        
+                        # 创建输入控件
+                        input_widget = MultiSelect(
+                            options=field_data["options"],
+                            label=field_name.title(),
+                            placeholder="请选择" + field_name.title()
+                        )
+                        input_widget.context.update(name=field_name)
+                        
+                        # 添加到返回列表
+                        rendered = await input_widget.render(request, selected)
+                        ret.append(rendered)
+        
         return ret
 
     @classmethod
@@ -188,6 +315,15 @@ class Model(Resource):
         path = request.url.path
         is_update = '/update/' in path
         
+        # 处理自定义表单字段，如角色和权限
+        custom_fields = {}
+        for name, values in data.multi_items():
+            if name.endswith('[]'):
+                base_name = name[:-2]
+                if base_name not in custom_fields:
+                    custom_fields[base_name] = []
+                custom_fields[base_name].append(values)
+        
         for field in cls.get_fields(is_display=False):
             input_ = field.input
             if input_.context.get("disabled") or isinstance(input_, inputs.DisplayOnly):
@@ -207,12 +343,70 @@ class Model(Resource):
                 v = data.getlist(name)
                 value = await input_.parse_value(request, v)
                 m2m_ret[name] = await input_.model.filter(pk__in=value)
+                continue
+            if isinstance(input_, inputs.MultiSelect):
+                # 获取多选值，可能是列表或字符串
+                values = data.getlist(name)
+                # 从自定义字段中获取值
+                if not values and name in custom_fields:
+                    values = custom_fields[name]
+                
+                if not values:
+                    values = []
+                elif len(values) == 1 and values[0] == '':
+                    values = []
+                
+                # 处理多选值
+                parsed_values = await input_.parse_value(request, values)
+                
+                # 如果字段是模型中的多对多字段，则处理多对多关系
+                if name in cls.model._meta.m2m_fields:
+                    # 确保parsed_values是列表，即使是空列表
+                    if not parsed_values:
+                        parsed_values = []
+                    
+                    related_model = cls.model._meta.fields_map[name].related_model
+                    m2m_ret[name] = await related_model.filter(pk__in=parsed_values)
+                else:
+                    # 否则作为普通字段处理
+                    ret[name] = parsed_values
+                continue
             else:
                 v = data.get(name)
                 value = await input_.parse_value(request, v)
                 if value is None:
                     continue
                 ret[name] = value
+        
+        # 处理表单中的非模型字段，记得移除当前方法上半部分已处理的自定义字段
+        # 以及确保roles和permissions使用自定义字段处理
+        for name, value in data.items():
+            if (name not in ret and name not in m2m_ret and 
+                name != "save" and name != "saveandedit" and 
+                name not in custom_fields and not name.endswith('[]')):
+                # 处理特殊字段：roles和permissions
+                if name in ['roles', 'permissions']:
+                    # 这些字段应该由自定义字段处理，记录一个警告
+                    logger.warning(f"字段 {name} 应该由自定义字段处理，但未被处理")
+                    continue
+                
+                # 检查是否是多值字段
+                values = data.getlist(name)
+                if len(values) > 1:
+                    # 将多个值作为列表保存
+                    parsed_values = [int(v) if v.isdigit() else v for v in values if v]
+                    
+                    # 检查是否是多对多字段
+                    if cls.model and hasattr(cls.model, '_meta') and name in cls.model._meta.m2m_fields:
+                        related_model = cls.model._meta.fields_map[name].related_model
+                        m2m_ret[name] = await related_model.filter(pk__in=parsed_values)
+                    else:
+                        ret[name] = parsed_values
+                else:
+                    # 单个值直接保存
+                    if value:
+                        ret[name] = int(value) if value.isdigit() else value
+        
         return ret, m2m_ret
 
     @classmethod

@@ -18,10 +18,8 @@ class User(AbstractAdmin):
     created_at = fields.DatetimeField(auto_now_add=True)
     is_superuser = fields.BooleanField(default=False, description="Is Superuser")
     is_active = fields.BooleanField(default=False, description="Is Active")
-    permissions = fields.JSONField(default={}, description="Permissions")
-    
     # 关联角色
-    roles = fields.ManyToManyField("models.Role", related_name="admins")
+    roles = fields.ManyToManyField("models.Role", related_name="users")
 
     def __str__(self):
         return f"{self.pk}#{self.username}"
@@ -64,6 +62,32 @@ class User(AbstractAdmin):
         
         return permissions
 
+class Resource(AbstractResource):
+    """资源模型"""
+    is_public = fields.BooleanField(default=False)
+
+
+class Permission(AbstractPermission):
+    """权限模型"""
+    pass
+
+
+class Role(AbstractRole):
+    """角色模型"""
+    description = fields.CharField(max_length=500, null=True, description="角色描述")
+    
+    # 与权限的多对多关系
+    permissions = fields.ManyToManyField("models.Permission", related_name="roles")
+
+
+class AdminLog(AbstractAdminLog):
+    """管理员操作日志"""
+    
+    class Meta:
+        table = "admin_logs"
+
+
+
 
 class Category(Model):
     slug = fields.CharField(max_length=200)
@@ -88,28 +112,3 @@ class Config(Model):
     key = fields.CharField(max_length=20, unique=True, description="Unique key for config")
     value = fields.JSONField()
     status: Status = fields.IntEnumField(Status, default=Status.on)
-
-
-class Resource(AbstractResource):
-    """资源模型"""
-    is_public = fields.BooleanField(default=False)
-
-
-class Permission(AbstractPermission):
-    """权限模型"""
-    pass
-
-
-class Role(AbstractRole):
-    """角色模型"""
-    description = fields.CharField(max_length=500, null=True, description="角色描述")
-    
-    # 与权限的多对多关系
-    permissions = fields.ManyToManyField("models.Permission", related_name="roles")
-
-
-class AdminLog(AbstractAdminLog):
-    """管理员操作日志"""
-    
-    class Meta:
-        table = "admin_logs"

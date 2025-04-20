@@ -9,7 +9,7 @@ from tortoise import Model
 
 from fastapi_admin.file_upload import FileUpload
 from fastapi_admin.widgets import Widget
-
+from fastapi_admin.utils.logger import logger
 
 class Input(Widget):
     template = "widgets/inputs/input.html"
@@ -133,13 +133,34 @@ class ManyToMany(Select):
         return await self.model.all()
 
     async def render(self, request: Request, value: Any):
+        # 加载所有选项
         options = await self.get_options()
-        selected = list(map(lambda x: x.pk, value.related_objects if value else []))
+        selected = []
+        
+        # 安全处理value，避免NoValuesFetched异常
+        if value is not None:
+            try:
+                # 如果value是ManyToManyRelation对象
+                if hasattr(value, 'all') and callable(getattr(value, 'all')):
+                    related_objects = await value.all()
+                    selected = [obj.pk for obj in related_objects]
+                elif hasattr(value, "related_objects"):
+                    selected = [obj.pk for obj in value.related_objects]
+                elif isinstance(value, list):
+                    selected = [obj.pk if hasattr(obj, 'pk') else obj for obj in value]
+            except Exception as e:
+                logger.warning(f"获取多对多关系的值失败: {str(e)}")
+        
+        # 标记选中的选项
         for option in options:
             if option.get("value") in selected:
                 option["selected"] = True
+        
+        # 序列化选项为JSON，不要在context中包含value避免参数重复
         self.context.update(options=json.dumps(options))
-        return await super(Input, self).render(request, value)
+        
+        # 调用Input的render方法完成渲染
+        return await super(ManyToMany, self).render(request, value)
 
 
 class Enum(Select):
@@ -282,3 +303,95 @@ class Number(Text):
 
 class Color(Text):
     template = "widgets/inputs/color.html"
+
+
+class MultiSelect(Input):
+    """多选下拉框组件"""
+    template = "widgets/inputs/multiselect.html"
+    
+    def __init__(
+        self,
+        options=None,
+        default=None,
+        null=False,
+        help_text=None,
+        label="",
+        placeholder="请选择",
+        disabled=False,
+    ):
+        super().__init__(
+            null=null,
+            default=default,
+            help_text=help_text,
+            disabled=disabled,
+            label=label,
+            placeholder=placeholder
+        )
+        self.options = options or []
+        
+    async def render(self, request: Request, value: Any):
+        if value is None:
+            value = self.default or []
+        
+        # 将value转换为列表
+        if isinstance(value, (int, str)):
+            value = [value]
+        elif not isinstance(value, list):
+            try:
+                value = list(value)
+            except:
+                value = []
+        
+        # 如果传入的是函数，动态获取选项
+        options = self.options
+        if callable(options):
+            options = await options(request)
+            
+        # 支持从表单初始化数据中获取选项
+        if hasattr(request.state, "form_init") and request.state.form_init.get(self.context.get("name"), {}).get("options"):
+            options = request.state.form_init[self.context.get("name")]["options"]
+            
+            # 确保选项格式一致 - 如果是字典列表，确保每个字典有value和label/text字段
+            if options and isinstance(options[0], dict):
+                normalized_options = []
+                for opt in options:
+                    if "value" in opt:
+                        # 确保每个选项都有label属性
+                        if "label" not in opt and "text" in opt:
+                            opt["label"] = opt["text"]
+                        normalized_options.append(opt)
+                options = normalized_options
+            
+        # 支持从表单初始化数据中获取选中值
+        selected = []
+        if hasattr(request.state, "form_init") and request.state.form_init.get(self.context.get("name"), {}).get("selected"):
+            selected = request.state.form_init[self.context.get("name")]["selected"]
+            
+        # 更新context但不包含value，避免和模板渲染时的显式参数重复
+        self.context.update(options=options, selected=selected)
+        return await super(MultiSelect, self).render(request, value)
+        
+    async def parse_value(self, request: Request, value: Any):
+        """处理表单提交的值"""
+        if not value:
+            return []
+        
+        if isinstance(value, list):
+            return value
+            
+        # 处理表单提交的字符串值
+        if isinstance(value, str):
+            if value.startswith("[") and value.endswith("]"):
+                try:
+                    return json.loads(value)
+                except:
+                    pass
+            
+            # 处理逗号分隔的值
+            if "," in value:
+                return [v.strip() for v in value.split(",")]
+                
+            # 单个值
+            return [value]
+            
+        return []

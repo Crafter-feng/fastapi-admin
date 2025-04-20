@@ -1,0 +1,34 @@
+{% extends 'widgets/inputs/input.html' %}
+
+{% block input %}
+<div class="form-selectgroup">
+    {% if label %}
+    <div class="mb-2">{{ label }}</div>
+    {% endif %}
+    <select name="{{ name }}" id="{{ name }}" class="form-select form-multiselect" multiple
+        aria-label="{{ label or name }}"
+        {% if required %}required{% endif %}
+        {% if disabled %}disabled{% endif %}
+        {% if placeholder %}data-placeholder="{{ placeholder }}"{% endif %}>
+        {% for option in options %}
+        <option value="{{ option.value }}" 
+            {% if value and option.value in value %}selected{% endif %}
+            {% if selected and option.value in selected %}selected{% endif %}>
+            {{ option.text }}
+        </option>
+        {% endfor %}
+    </select>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化TomSelect多选组件
+    if (typeof TomSelect !== 'undefined') {
+        new TomSelect('#{{ name }}', {
+            plugins: ['remove_button'],
+            maxItems: null
+        });
+    }
+});
+</script>
+{% endblock %} 
