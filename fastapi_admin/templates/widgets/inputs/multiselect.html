@@ -1,34 +1,51 @@
-{% extends 'widgets/inputs/input.html' %}
+{% extends 'widgets/inputs/base.html' %}
 
-{% block input %}
-<div class="form-selectgroup">
-    {% if label %}
-    <div class="mb-2">{{ label }}</div>
-    {% endif %}
-    <select name="{{ name }}" id="{{ name }}" class="form-select form-multiselect" multiple
+{% block content %}
+<div class="form-group mb-3">
+    <label class="form-label">{{ label }}</label>
+    
+    <!-- 多选下拉框 -->
+    <select name="{{ name }}" id="{{ name }}" class="form-select form-multi-select" multiple
+        data-choices-placeholder="{{ placeholder }}"
         aria-label="{{ label or name }}"
-        {% if required %}required{% endif %}
-        {% if disabled %}disabled{% endif %}
-        {% if placeholder %}data-placeholder="{{ placeholder }}"{% endif %}>
+        {% if not null %}required{% endif %}
+        {% if disabled %}disabled{% endif %}>
         {% for option in options %}
         <option value="{{ option.value }}" 
             {% if value and option.value in value %}selected{% endif %}
             {% if selected and option.value in selected %}selected{% endif %}>
-            {{ option.text }}
+            {{ option.label }}
         </option>
         {% endfor %}
     </select>
+    
+    {% if help_text %}
+    <small class="form-hint">
+        {{ help_text }}
+    </small>
+    {% endif %}
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // 初始化TomSelect多选组件
-    if (typeof TomSelect !== 'undefined') {
-        new TomSelect('#{{ name }}', {
-            plugins: ['remove_button'],
-            maxItems: null
-        });
-    }
-});
+    document.addEventListener("DOMContentLoaded", function() {
+        var element = document.getElementById("{{ name }}");
+        if (element) {
+            new Choices(element, {
+                classNames: {
+                    containerInner: 'form-multi-select',
+                    input: 'form-control',
+                    inputCloned: 'form-control-sm',
+                    listDropdown: 'dropdown-menu',
+                    itemChoice: 'dropdown-item',
+                    activeState: 'show',
+                    selectedState: 'active',
+                },
+                shouldSort: false,
+                removeItemButton: true,
+                placeholder: true,
+                placeholderValue: "{{ placeholder }}"
+            });
+        }
+    });
 </script>
 {% endblock %} 

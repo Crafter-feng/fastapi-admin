@@ -11,7 +11,7 @@ from starlette.status import HTTP_403_FORBIDDEN
 from fastapi_admin.depends import get_current_user
 from fastapi_admin.models import AbstractAdmin
 from fastapi_admin.providers import Provider
-from fastapi_admin.resources import Model, Dropdown, Field, ComputeField, Action, Method
+from fastapi_admin.resources import Model, Dropdown, Action, Method
 from fastapi_admin.template import templates
 from fastapi_admin import constants
 from fastapi_admin.utils.permissions import sync_permissions_to_db
@@ -78,45 +78,16 @@ class PermissionProvider(Provider):
                 "label"
             ]
 
-        class RolePermissionsField(ComputeField):
-            """自定义计算字段，用于显示角色的权限"""
-            
-            async def get_value(self, request: Request, obj: dict):
-                """获取权限列表的字符串表示"""
-                role_id = obj.get("id")
-                if not role_id:
-                    # 处理新角色的情况（没有ID）
-                    return ""
-                
-                try:
-                    permission_provider = request.app.state.permission_provider
-                    role_model = permission_provider.role_model
-                    
-                    # 尝试获取角色，如果不存在则返回空字符串
-                    role = await role_model.get_or_none(pk=role_id)
-                    if not role:
-                        return ""
-                    
-                    # 获取角色的所有权限
-                    await role.fetch_related("permissions")
-                    permissions = await role.permissions.all()
-                    
-                    # 返回权限标签的逗号分隔列表
-                    return ", ".join([p.label for p in permissions]) if permissions else ""
-                except Exception as e:
-                    logger.error(f"获取角色权限出错: {str(e)}")
-                    return ""
-
         class RoleResource(Model):
             label = _('Role')
             model = self.role_model
             
-            # 添加自定义计算字段显示角色的权限
+            # 直接使用字符串定义字段，包括关联字段
             fields = [
                 "id", 
                 "label",
                 "description",
-                RolePermissionsField(name="role_permissions", label=_("Permissions"))
+                "permissions"  # 直接使用关联字段名称
             ]
             
             @classmethod
@@ -150,92 +121,6 @@ class PermissionProvider(Provider):
                     ))
                 return actions
                 
-            @classmethod
-            async def get_form_init(cls, request: Request, obj=None):
-                """获取表单初始化数据，包括权限选项"""
-                form_init = await super().get_form_init(request, obj)
-                
-                # 获取所有权限
-                permission_model = request.app.state.permission_provider.permission_model
-                if permission_model:
-                    try:
-                        permissions = await permission_model.all()
-                        
-                        # 确保存在permissions字段
-                        if "permissions" not in form_init:
-                            form_init["permissions"] = {}
-                        
-                        # 添加选项列表
-                        form_init["permissions"]["options"] = [
-                            {"value": str(perm.pk), "label": f"{perm.label} ({perm.resource}.{perm.permission})"} 
-                            for perm in permissions
-                        ]
-                        
-                        # 如果是编辑模式，获取当前角色的权限
-                        if obj and hasattr(obj, "permissions"):
-                            role_permissions = await obj.permissions.all()
-                            # 确保selected是一个id列表（字符串格式）
-                            form_init["permissions"]["selected"] = [str(perm.pk) for perm in role_permissions]
-                            
-                            # 记录调试信息
-                            logger.debug(f"角色 {obj.pk} 的权限: {form_init['permissions']['selected']}")
-                    except Exception as e:
-                        logger.error(f"获取权限选项出错: {str(e)}")
-                        
-                return form_init
-            
-            @classmethod
-            async def save(cls, request: Request, obj, data, **kwargs):
-                """保存角色数据，包括权限关联"""
-                try:
-                    # 首先保存基本信息
-                    saved_obj = await super().save(request, obj, data, **kwargs)
-                    
-                    # 保存权限关联
-                    if hasattr(saved_obj, "permissions"):
-                        # 获取选中的权限ID
-                        permission_ids = data.get("permissions", [])
-                        logger.debug(f"保存角色 {saved_obj.pk} 的权限: {permission_ids}")
-                        
-                        try:
-                            # 清除现有权限
-                            await saved_obj.permissions.clear()
-                            
-                            # 处理权限ID
-                            if permission_ids:
-                                # 确保权限ID是列表
-                                if not isinstance(permission_ids, list):
-                                    if isinstance(permission_ids, str):
-                                        try:
-                                            permission_ids = json.loads(permission_ids)
-                                        except json.JSONDecodeError:
-                                            permission_ids = [permission_ids]
-                                    else:
-                                        permission_ids = [permission_ids]
-                                
-                                # 确保所有ID都是整数
-                                permission_ids = [int(pid) for pid in permission_ids if pid]
-                                
-                                if permission_ids:
-                                    # 获取权限对象
-                                    permission_model = request.app.state.permission_provider.permission_model
-                                    if permission_model:
-                                        permissions = await permission_model.filter(pk__in=permission_ids)
-                                        
-                                        # 添加新权限
-                                        if permissions:
-                                            for perm in permissions:
-                                                await saved_obj.permissions.add(perm)
-                                            logger.debug(f"成功添加 {len(permissions)} 个权限给角色 {saved_obj.pk}")
-                        except Exception as e:
-                            logger.error(f"保存角色权限关系出错: {str(e)}")
-                            # 继续返回保存的对象，即使权限关系处理失败
-                    
-                    return saved_obj
-                except Exception as e:
-                    logger.error(f"保存角色数据出错: {str(e)}")
-                    raise
-
         class ResourceResource(Model):
             label = _('Resource')
             model = self.resource_model
@@ -245,45 +130,23 @@ class PermissionProvider(Provider):
                 "path"
             ]
 
-        class UserRolesField(ComputeField):
-            """自定义计算字段，用于显示用户的角色"""
-            
-            async def get_value(self, request: Request, obj: dict):
-                """获取角色列表的字符串表示"""
-                user_id = obj.get("id")
-                if not user_id:
-                    return ""
-                
-                try:
-                    permission_provider = request.app.state.permission_provider
-                    user_model = permission_provider.user_model
-                    user = await user_model.get(pk=user_id)
-                    
-                    # 获取用户的所有角色
-                    await user.fetch_related("roles")
-                    roles = await user.roles.all()
-                    
-                    # 返回角色标签的逗号分隔列表
-                    return ", ".join([r.label for r in roles]) if roles else ""
-                except Exception as e:
-                    logger.error(f"获取用户角色出错: {str(e)}")
-                    return ""
-
         class UserResource(Model):
             label = _('User')
             model = self.user_model
 
-            # 添加自定义计算字段显示用户的角色
+            # 直接使用字符串定义字段，包括关联字段
             fields = [
                 "id", 
                 "username",
                 "email", 
                 "is_superuser", 
                 "is_active", 
-                UserRolesField(name="user_roles", label=_("Roles")),
+                "roles",  # 直接使用关联字段名称
                 "last_login", 
                 "created_at"
             ]
+            
+            exclude_fields = ["username", "last_login", "created_at"]
             
             @classmethod
             async def get_actions(cls, request: Request, obj=None) -> List[Action]:
@@ -315,88 +178,6 @@ class PermissionProvider(Provider):
                         url=f"{request.app.admin_path}/assign_roles/{obj.id}"
                     ))
                 return actions
-            
-            exclude_fields = ["last_login", "created_at"]
-            
-            @classmethod
-            async def get_form_init(cls, request: Request, obj=None):
-                """获取表单初始化数据，包括角色选项"""
-                form_init = await super().get_form_init(request, obj)
-                
-                # 获取所有角色
-                role_model = request.app.state.permission_provider.role_model
-                if role_model:
-                    try:
-                        roles = await role_model.all()
-                        
-                        # 确保存在roles字段
-                        if "roles" not in form_init:
-                            form_init["roles"] = {}
-                        
-                        # 添加选项列表
-                        form_init["roles"]["options"] = [
-                            {"value": str(role.pk), "label": role.label} 
-                            for role in roles
-                        ]
-                        
-                        # 如果是编辑模式，获取当前用户的角色
-                        if obj and hasattr(obj, "roles"):
-                            user_roles = await obj.roles.all()
-                            # 确保selected是一个id列表（字符串格式）
-                            form_init["roles"]["selected"] = [str(role.pk) for role in user_roles]
-                            
-                            # 记录调试信息
-                            logger.debug(f"用户 {obj.pk} 的角色: {form_init['roles']['selected']}")
-                    except Exception as e:
-                        logger.error(f"获取角色选项出错: {str(e)}")
-                        
-                return form_init
-            
-            @classmethod
-            async def save(cls, request: Request, obj, data, **kwargs):
-                """保存用户数据，包括角色关联"""
-                try:
-                    # 首先保存基本信息
-                    saved_obj = await super().save(request, obj, data, **kwargs)
-                    
-                    # 保存角色关联
-                    if hasattr(saved_obj, "roles"):
-                        # 获取选中的角色ID
-                        role_ids = data.get("roles", [])
-                        logger.debug(f"保存用户 {saved_obj.pk} 的角色: {role_ids}")
-                        
-                        # 清除现有角色
-                        await saved_obj.roles.clear()
-                        
-                        # 处理角色ID
-                        if role_ids:
-                            # 确保角色ID是列表
-                            if not isinstance(role_ids, list):
-                                if isinstance(role_ids, str):
-                                    try:
-                                        role_ids = json.loads(role_ids)
-                                    except json.JSONDecodeError:
-                                        role_ids = [role_ids]
-                                else:
-                                    role_ids = [role_ids]
-                            
-                            # 确保所有ID都是整数
-                            role_ids = [int(rid) for rid in role_ids if rid]
-                            
-                            if role_ids:
-                                # 获取角色对象
-                                role_model = request.app.state.permission_provider.role_model
-                                roles = await role_model.filter(pk__in=role_ids)
-                                
-                                # 添加新角色
-                                if roles:
-                                    await saved_obj.roles.add(*roles)
-                                    logger.debug(f"成功添加 {len(roles)} 个角色给用户 {saved_obj.pk}")
-                    
-                    return saved_obj
-                except Exception as e:
-                    logger.error(f"保存用户数据出错: {str(e)}")
-                    raise
 
         @app.register
         class Auth(Dropdown):

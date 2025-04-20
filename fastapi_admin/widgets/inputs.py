@@ -111,58 +111,6 @@ class ForeignKey(Select):
     async def get_queryset(self):
         return await self.model.all()
 
-
-class ManyToMany(Select):
-    template = "widgets/inputs/many_to_many.html"
-
-    def __init__(
-        self,
-        model: Type[Model],
-        disabled: bool = False,
-        help_text: Optional[str] = None,
-    ):
-        super().__init__(help_text=help_text, disabled=disabled)
-        self.model = model
-
-    async def get_options(self):
-        ret = await self.get_queryset()
-        options = [dict(label=str(x), value=x.pk) for x in ret]
-        return options
-
-    async def get_queryset(self):
-        return await self.model.all()
-
-    async def render(self, request: Request, value: Any):
-        # 加载所有选项
-        options = await self.get_options()
-        selected = []
-        
-        # 安全处理value，避免NoValuesFetched异常
-        if value is not None:
-            try:
-                # 如果value是ManyToManyRelation对象
-                if hasattr(value, 'all') and callable(getattr(value, 'all')):
-                    related_objects = await value.all()
-                    selected = [obj.pk for obj in related_objects]
-                elif hasattr(value, "related_objects"):
-                    selected = [obj.pk for obj in value.related_objects]
-                elif isinstance(value, list):
-                    selected = [obj.pk if hasattr(obj, 'pk') else obj for obj in value]
-            except Exception as e:
-                logger.warning(f"获取多对多关系的值失败: {str(e)}")
-        
-        # 标记选中的选项
-        for option in options:
-            if option.get("value") in selected:
-                option["selected"] = True
-        
-        # 序列化选项为JSON，不要在context中包含value避免参数重复
-        self.context.update(options=json.dumps(options))
-        
-        # 调用Input的render方法完成渲染
-        return await super(ManyToMany, self).render(request, value)
-
-
 class Enum(Select):
     def __init__(
         self,
@@ -346,29 +294,60 @@ class MultiSelect(Input):
         options = self.options
         if callable(options):
             options = await options(request)
+        
+        # 记录当前字段名和值
+        name = self.context.get("name", "未知字段")
+        logger.debug(f"渲染字段 {name}, 初始值: {value}, 选项数量: {len(options) if options else 0}")
             
         # 支持从表单初始化数据中获取选项
         if hasattr(request.state, "form_init") and request.state.form_init.get(self.context.get("name"), {}).get("options"):
             options = request.state.form_init[self.context.get("name")]["options"]
-            
-            # 确保选项格式一致 - 如果是字典列表，确保每个字典有value和label/text字段
-            if options and isinstance(options[0], dict):
-                normalized_options = []
-                for opt in options:
+            logger.debug(f"从form_init获取字段 {name} 的选项: {options}")
+        
+        # 标准化选项格式
+        normalized_options = []
+        
+        # 检查选项格式并规范化
+        if options:
+            for opt in options:
+                if isinstance(opt, dict):
+                    # 如果是字典格式，确保有value和label字段
                     if "value" in opt:
+                        item = {"value": opt["value"]}
                         # 确保每个选项都有label属性
-                        if "label" not in opt and "text" in opt:
-                            opt["label"] = opt["text"]
-                        normalized_options.append(opt)
-                options = normalized_options
+                        if "label" in opt:
+                            item["label"] = opt["label"]
+                        elif "text" in opt:
+                            item["label"] = opt["text"]
+                        else:
+                            item["label"] = str(opt["value"])
+                        normalized_options.append(item)
+                elif isinstance(opt, (list, tuple)) and len(opt) >= 2:
+                    # 如果是元组格式 (label, value)
+                    normalized_options.append({"value": str(opt[1]), "label": opt[0]})
+                else:
+                    # 简单值
+                    normalized_options.append({"value": str(opt), "label": str(opt)})
+        
+        options = normalized_options
+        logger.debug(f"字段 {name} 规范化后的选项: {options}")
             
         # 支持从表单初始化数据中获取选中值
         selected = []
         if hasattr(request.state, "form_init") and request.state.form_init.get(self.context.get("name"), {}).get("selected"):
             selected = request.state.form_init[self.context.get("name")]["selected"]
+            logger.debug(f"从form_init获取字段 {name} 的选中项: {selected}")
+        
+        # 确保选中值是字符串列表
+        selected = [str(s) for s in selected]
+        value = [str(v) for v in value]
             
         # 更新context但不包含value，避免和模板渲染时的显式参数重复
         self.context.update(options=options, selected=selected)
+        
+        # 记录最终渲染数据
+        logger.debug(f"字段 {name} 最终渲染数据: options={len(options)}项, selected={selected}, value={value}")
+        
         return await super(MultiSelect, self).render(request, value)
         
     async def parse_value(self, request: Request, value: Any):
