@@ -277,7 +277,7 @@ class MultiSelect(Input):
         )
         self.options = options or []
         
-    async def render(self, request: Request, value: Any):
+    async def render(self, request: Request, value: Any,_options:list=[]):
         if value is None:
             value = self.default or []
         
@@ -291,7 +291,7 @@ class MultiSelect(Input):
                 value = []
         
         # 如果传入的是函数，动态获取选项
-        options = self.options
+        options = self.options or _options
         if callable(options):
             options = await options(request)
         

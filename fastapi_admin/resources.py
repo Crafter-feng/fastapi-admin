@@ -839,8 +839,7 @@ class Model(Resource):
         display, input_ = displays.Display(), inputs.Input(
             placeholder=placeholder, null=null, default=field.default
         )
-        logger.info(f"field: {field} type: {type(field)}")
-
+        
         if field.pk or field.generated:
             display, input_ = displays.Display(), inputs.DisplayOnly()
         elif isinstance(field, BooleanField):
@@ -877,12 +876,14 @@ class Model(Resource):
             )
             field_name = field.source_field
         elif isinstance(field, ManyToManyFieldInstance):
-            display, input_ = displays.InputOnly(), inputs.MultiSelect(
+            # 使用通用的Display显示组件 + MultiSelect输入组件
+            # Display组件会将数据转为字符串显示
+            display, input_ = displays.Display(), inputs.MultiSelect(
                 options=[], 
                 label=_(label),
-                placeholder=_("Please select1")
+                placeholder=_("Please select")
             )
-        logger.info(f"field_name: {field_name} label: {label} display: {display} input_: {input_}")
+        logger.debug(f"映射字段 {field_name}，类型={type(field).__name__}，显示组件={type(display).__name__}，输入组件={type(input_).__name__}")
         return Field(name=field_name, label=_(label), display=display, input_=input_)
 
     @classmethod
@@ -1047,36 +1048,104 @@ async def render_values(
     display: bool = True,
 ) -> Tuple[List[List[Any]], List[dict], List[dict], List[List[dict]]]:
     """
-    render values with template render
-    :params model:
-    :params request:
-    :params fields:
-    :params values:
-    :params display:
-    :params request:
-    :params model:
-    :return:
+    渲染列表视图中的值
     """
     ret = []
     cell_attributes: List[List[dict]] = []
     row_attributes: List[dict] = []
     column_attributes: List[dict] = []
+    
+    # 记录字段和值的数量
+    logger.debug(f"渲染数据: {len(fields)} 个字段, {len(values)} 条记录")
+    
+    # 设置列属性
     for field in fields:
         column_attributes.append(await model.column_attributes(request, field))
+    
+    # 处理每一行数据
     for value in values:
         row_attributes.append(await model.row_attributes(request, value))
         item = []
         cell_item = []
+        
+        # 处理每个字段
         for field in fields:
-            v = value.get(field.name)
+            field_name = field.name
             cell_item.append(await model.cell_attributes(request, value, field))
+            
+            # 获取字段值
+            v = value.get(field_name)
+            
+            # 检查字段类型，特殊处理多对多字段
+            meta = getattr(model.model, '_meta', None)
+            is_m2m = meta and hasattr(meta, 'm2m_fields') and field_name in meta.m2m_fields
+            
+            # 如果是多对多字段，需要格式化显示
+            if is_m2m and v and isinstance(v, list):
+                logger.debug(f"处理多对多字段 {field_name}, 有 {len(v)} 个关联对象")
+                
+                # 格式化关联对象，转为易读字符串
+                formatted_value = _format_related_objects(v)
+                
+                # 显示模式
+                if display:
+                    rendered = await field.display.render(request, formatted_value)
+                    item.append(rendered)
+                else:
+                    # 编辑模式传递原始值
+                    rendered = await field.input.render(request, v)
+                    item.append(rendered)
+                
+                continue
+            
+            # 处理普通字段
             if display:
-                item.append(await field.display.render(request, v))
+                # 显示模式
+                rendered = await field.display.render(request, v)
+                item.append(rendered)
             else:
-                item.append(await field.input.render(request, v))
+                # 编辑模式
+                rendered = await field.input.render(request, v)
+                item.append(rendered)
+                
         ret.append(item)
         cell_attributes.append(cell_item)
+    
     return ret, row_attributes, column_attributes, cell_attributes
+
+def _format_related_objects(objects):
+    """格式化关联对象为易读字符串
+    
+    Args:
+        objects: 关联对象列表
+        
+    Returns:
+        格式化后的字符串
+    """
+    if not objects:
+        return ""
+    
+    # 提取对象的显示名称
+    labels = []
+    for obj in objects:
+        if obj is None:
+            continue
+            
+        # 尝试获取显示属性
+        label = None
+        for attr in ["label", "name", "title", "display_name", "username", "email"]:
+            if hasattr(obj, attr):
+                label = getattr(obj, attr)
+                break
+                
+        # 如果没有找到合适的属性，使用字符串表示
+        if label is None:
+            label = str(obj)
+            
+        labels.append(label)
+    
+    # 拼接成逗号分隔的字符串
+    return ", ".join(labels)
 
 def debug_dump_object(obj, max_depth=2, current_depth=0):
     """调试函数，用于打印对象结构

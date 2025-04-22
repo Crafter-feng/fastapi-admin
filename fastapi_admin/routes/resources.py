@@ -101,13 +101,20 @@ async def list_view(
     page_num: int = 1,
     order_by: Optional[str] = None,
 ):
+    logger.info(f"加载 {resource} 列表视图")
     fields_label = model_resource.get_fields_label()
     fields = model_resource.get_fields()
     fk_fields = model_resource.get_fk_field()
+    m2m_fields = model_resource.get_m2m_field()
+    
+    logger.info(f"检测到外键字段: {fk_fields}")
+    logger.info(f"检测到多对多字段: {m2m_fields}")
+    
     qs = model.all()
     params, qs = await model_resource.resolve_query_params(request, dict(request.query_params), qs)
     filters = await model_resource.get_filters(request, params)
     total = await qs.count()
+    
     if order_by:
         qs = qs.order_by(order_by)
     if page_size:
@@ -115,16 +122,50 @@ async def list_view(
     else:
         page_size = model_resource.page_size
     qs = qs.offset((page_num - 1) * page_size)
+    
+    # 获取数据对象
+    objects = []
     if fk_fields:
+        # 加载外键关系
         objects = await qs.select_related(*fk_fields)
-        values = []
-        for obj in objects:
-            obj_as_dict = dict(obj)
-            for attr in fk_fields:
-                obj_as_dict[attr] = getattr(obj, attr)
-            values.append(obj_as_dict)
     else:
-        values = await qs.values()
+        objects = await qs.all()
+    
+    # 转换为字典并处理关联数据
+    values = []
+    for obj in objects:
+        # 基础字段转为字典
+        obj_as_dict = dict(obj)
+        
+        # 处理外键关系
+        for attr in fk_fields:
+            obj_as_dict[attr] = getattr(obj, attr)
+        
+        # 处理多对多关系
+        if m2m_fields:
+            # 预加载多对多关系
+            try:
+                for field_name in m2m_fields:
+                    # 加载关联数据
+                    await obj.fetch_related(field_name)
+                    
+                    # 获取关联管理器
+                    relation = getattr(obj, field_name)
+                    
+                    # 获取所有关联对象
+                    try:
+                        related_objs = await relation.all()
+                        logger.debug(f"对象 {obj.pk} 的 {field_name} 关联了 {len(related_objs)} 个对象")
+                        
+                        # 将关联对象存入字典
+                        obj_as_dict[field_name] = related_objs
+                    except Exception as e:
+                        logger.error(f"获取 {field_name} 关联对象失败: {str(e)}")
+                        obj_as_dict[field_name] = []
+            except Exception as e:
+                logger.error(f"预加载多对多关系失败: {str(e)}")
+        
+        values.append(obj_as_dict)
 
     (
         rendered_values,

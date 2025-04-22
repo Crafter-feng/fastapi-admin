@@ -141,12 +141,13 @@ class PermissionProvider(Provider):
                 "email", 
                 "is_superuser", 
                 "is_active", 
-                "roles",  # 直接使用关联字段名称
+                "roles",  
                 "last_login", 
                 "created_at"
             ]
             
-            exclude_fields = ["username", "last_login", "created_at"]
+            exclude_fields_on_edit = ["username"]
+            exclude_fields = ["last_login", "created_at"]
             
             @classmethod
             async def get_actions(cls, request: Request, obj=None) -> List[Action]:
@@ -252,6 +253,40 @@ class PermissionProvider(Provider):
             role_ids = data.get('roles', [])
             (await self._update_user_roles(target_admin, role_ids))
             return {'status': 'success', 'message': '角色更新成功'}
+
+        @app.post('/api/users')
+        async def create_user(request: Request, user=Depends(get_current_user)):
+            '创建用户API'
+            if not self.user_model:
+                return {'status': 'error', 'message': '未配置用户模型'}
+            
+            try:
+                data = await request.json()
+                username = data.get('username')
+                password = data.get('password')
+                
+                if not username or not password:
+                    return {'status': 'error', 'message': '用户名和密码不能为空'}
+                
+                # 处理其他字段
+                email = data.get('email')
+                is_active = data.get('is_active', False) 
+                is_superuser = data.get('is_superuser', False)
+                
+                # 创建用户
+                new_user = await self.user_model.create(
+                    username=username,
+                    password=password,
+                    email=email,
+                    is_active=is_active,
+                    is_superuser=is_superuser
+                )
+                
+                logger.info(f"创建新用户成功: {username}, ID: {new_user.pk}")
+                return {'status': 'success', 'message': '用户创建成功', 'id': new_user.pk}
+            except Exception as e:
+                logger.error(f"创建用户失败: {str(e)}")
+                return {'status': 'error', 'message': f'创建用户失败: {str(e)}'}
 
         @app.get('/assign_permissions/{role_id}')
         async def assign_permissions_page(request: Request, role_id: int, user=Depends(get_current_user)):
